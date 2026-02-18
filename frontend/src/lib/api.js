@@ -1,9 +1,7 @@
 import axios from 'axios'
 
-// Use production backend URL when deployed, otherwise use local proxy
-const baseURL = import.meta.env.PROD 
-  ? 'https://scrunchiesite.onrender.com/api'
-  : '/api'
+// Use environment variable for API URL
+const baseURL = import.meta.env.VITE_API_URL
 
 const api = axios.create({
   baseURL,
