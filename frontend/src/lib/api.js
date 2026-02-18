@@ -1,10 +1,16 @@
 import axios from 'axios'
 
+// Use production backend URL when deployed, otherwise use local proxy
+const baseURL = import.meta.env.PROD 
+  ? 'https://scrunchiesite.onrender.com/api'
+  : '/api'
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 })
 
 api.interceptors.request.use((config) => {
