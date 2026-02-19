@@ -44,6 +44,7 @@ export const productsAPI = {
   getAll: (params) => api.get('/products/', { params }),
   getBySlug: (slug) => api.get(`/products/${slug}/`),
   getCategories: () => api.get('/products/categories/'),
+  getFeatured: () => api.get('/products/featured/'),
   create: (data) => api.post('/products/', data, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),

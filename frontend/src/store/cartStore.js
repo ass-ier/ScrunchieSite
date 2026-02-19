@@ -6,34 +6,39 @@ const useCartStore = create(
     (set, get) => ({
       items: [],
       
-      addItem: (product, quantity = 1) => {
+      addItem: (product, quantity = 1, size = null) => {
         const items = get().items
-        const existingItem = items.find(item => item.id === product.id)
+        const itemKey = size ? `${product.id}-${size}` : product.id
+        const existingItem = items.find(item => 
+          size ? (item.id === product.id && item.selectedSize === size) : item.id === product.id
+        )
         
         if (existingItem) {
           set({
             items: items.map(item =>
-              item.id === product.id
+              (size ? (item.id === product.id && item.selectedSize === size) : item.id === product.id)
                 ? { ...item, quantity: item.quantity + quantity }
                 : item
             )
           })
         } else {
-          set({ items: [...items, { ...product, quantity }] })
+          const newItem = { ...product, quantity, selectedSize: size, cartItemKey: itemKey }
+          set({ items: [...items, newItem] })
         }
       },
       
-      removeItem: (productId) => {
-        set({ items: get().items.filter(item => item.id !== productId) })
+      removeItem: (cartItemKey) => {
+        set({ items: get().items.filter(item => item.cartItemKey !== cartItemKey) })
       },
       
-      updateQuantity: (productId, quantity) => {
+      updateQuantity: (cartItemKey, quantity, maxStock) => {
         if (quantity <= 0) {
-          get().removeItem(productId)
+          get().removeItem(cartItemKey)
         } else {
+          const finalQuantity = maxStock ? Math.min(quantity, maxStock) : quantity
           set({
             items: get().items.map(item =>
-              item.id === productId ? { ...item, quantity } : item
+              item.cartItemKey === cartItemKey ? { ...item, quantity: finalQuantity } : item
             )
           })
         }

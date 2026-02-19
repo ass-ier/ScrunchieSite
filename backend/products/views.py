@@ -1,8 +1,10 @@
 from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from django.db import transaction
-from .models import Product, Category
+from django.db.models import Q
+from .models import Product, Category, ProductSize
 from .serializers import ProductSerializer, CategorySerializer
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -20,12 +22,12 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     lookup_field = 'slug'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'description']
+    search_fields = ['name', 'description', 'color']
     ordering_fields = ['price', 'created_at', 'stock']
     ordering = ['-created_at']
     
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'featured']:
             return [AllowAny()]
         return [IsAdminUser()]
     
@@ -41,7 +43,33 @@ class ProductViewSet(viewsets.ModelViewSet):
         if category:
             queryset = queryset.filter(category__slug=category)
         
+        # Filter by size
+        size = self.request.query_params.get('size', None)
+        if size:
+            queryset = queryset.filter(sizes__size=size.upper()).distinct()
+        
+        # Filter by color
+        color = self.request.query_params.get('color', None)
+        if color:
+            queryset = queryset.filter(color__icontains=color)
+        
+        # Search by name
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) | 
+                Q(description__icontains=search) |
+                Q(color__icontains=search)
+            )
+        
         return queryset
+    
+    @action(detail=False, methods=['get'])
+    def featured(self, request):
+        """Get featured products"""
+        featured_products = Product.objects.filter(is_featured=True, is_available=True)
+        serializer = self.get_serializer(featured_products, many=True)
+        return Response(serializer.data)
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):

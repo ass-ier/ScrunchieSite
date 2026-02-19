@@ -45,9 +45,11 @@ export default function Layout() {
             <div className="flex items-center space-x-4">
               {isAuthenticated ? (
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-accent-300 hidden md:block">
-                    {user?.first_name || user?.phone}
-                  </span>
+                  {user?.first_name && (
+                    <span className="text-sm text-accent-300 hidden md:block">
+                      {user.first_name}
+                    </span>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="text-sm text-cream/80 hover:text-accent-400 transition-colors"

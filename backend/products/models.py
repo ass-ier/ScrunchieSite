@@ -12,6 +12,12 @@ class Category(models.Model):
         return self.name
 
 class Product(models.Model):
+    SIZE_CHOICES = [
+        ('S', 'Small'),
+        ('M', 'Medium'),
+        ('L', 'Large'),
+    ]
+    
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
     description = models.TextField()
@@ -20,8 +26,28 @@ class Product(models.Model):
     image = models.ImageField(upload_to='products/')
     stock = models.IntegerField(default=0)
     is_available = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
+    color = models.CharField(max_length=50, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
+
+class ProductSize(models.Model):
+    SIZE_CHOICES = [
+        ('S', 'Small'),
+        ('M', 'Medium'),
+        ('L', 'Large'),
+    ]
+    
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='sizes')
+    size = models.CharField(max_length=1, choices=SIZE_CHOICES)
+    stock = models.IntegerField(default=0)
+    
+    class Meta:
+        unique_together = ['product', 'size']
+        ordering = ['size']
+    
+    def __str__(self):
+        return f'{self.product.name} - {self.get_size_display()}'
