@@ -44,9 +44,12 @@ export default function Checkout() {
     }
     
     if (user) {
+      // Combine first_name and last_name for full_name
+      const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ')
+      
       setFormData(prev => ({
         ...prev,
-        full_name: user.full_name || '',
+        full_name: fullName || '',
         phone: user.phone || '',
         email: user.email || '',
       }))
@@ -357,8 +360,14 @@ export default function Checkout() {
             
             <div className="space-y-3 mb-6">
               {items.map(item => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <span>{item.name} x{item.quantity}</span>
+                <div key={item.cartItemKey} className="flex justify-between text-sm">
+                  <span>
+                    {item.name}
+                    {item.selectedSize && (
+                      <span className="text-primary-500 ml-1">({item.selectedSize})</span>
+                    )}
+                    {' '}x{item.quantity}
+                  </span>
                   <span>{(item.price * item.quantity).toFixed(2)} ETB</span>
                 </div>
               ))}

@@ -22,9 +22,9 @@ class CouponViewSet(viewsets.ModelViewSet):
             return Response({
                 'valid': True,
                 'code': serializer.validated_data['code'],
-                'discount': serializer.validated_data['discount'],
-                'final_amount': serializer.validated_data['final_amount'],
+                'discount_amount': float(serializer.validated_data['discount']),
+                'final_amount': float(serializer.validated_data['final_amount']),
                 'coupon_type': serializer.validated_data['coupon'].type,
-                'coupon_value': serializer.validated_data['coupon'].value,
+                'coupon_value': float(serializer.validated_data['coupon'].value),
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
