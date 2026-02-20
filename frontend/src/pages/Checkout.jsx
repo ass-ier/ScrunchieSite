@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useCartStore from '../store/cartStore'
 import useAuthStore from '../store/authStore'
-import { ordersAPI } from '../lib/api'
+import { ordersAPI, couponsAPI } from '../lib/api'
 import toast from 'react-hot-toast'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 const PAYMENT_INFO = {
   telebirr: { number: '0987654321', name: 'Maya' },
@@ -17,6 +18,9 @@ export default function Checkout() {
   const { user, isAuthenticated } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [receiptPreview, setReceiptPreview] = useState(null)
+  const [couponCode, setCouponCode] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [discount, setDiscount] = useState({ amount: 0, code: '' })
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -70,6 +74,37 @@ export default function Checkout() {
     }
   }
   
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast.error('Please enter a coupon code')
+      return
+    }
+    
+    setCouponLoading(true)
+    try {
+      const response = await couponsAPI.validate(couponCode, getTotal())
+      setDiscount({
+        amount: response.data.discount_amount,
+        code: couponCode
+      })
+      toast.success('Coupon applied successfully!')
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Invalid coupon code')
+      setDiscount({ amount: 0, code: '' })
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+  
+  const handleRemoveCoupon = () => {
+    setDiscount({ amount: 0, code: '' })
+    setCouponCode('')
+    toast.success('Coupon removed')
+  }
+  
+  const subtotal = getTotal()
+  const finalTotal = subtotal - discount.amount
+  
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -93,7 +128,8 @@ export default function Checkout() {
     try {
       const orderData = {
         ...formData,
-        total_amount: getTotal(),
+        total_amount: finalTotal,
+        coupon_code: discount.code || '',
         items: items.map(item => ({
           product_id: item.id,
           quantity: item.quantity,
@@ -119,7 +155,9 @@ export default function Checkout() {
   }
   
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div>
+      <Breadcrumbs />
+      <div className="container mx-auto px-4 py-12">
       <h1 className="font-display text-4xl font-bold mb-8">Checkout</h1>
       
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -326,11 +364,56 @@ export default function Checkout() {
               ))}
               
               <div className="border-t pt-3">
+                <div className="flex justify-between text-lg font-semibold mb-2">
+                  <span>Subtotal</span>
+                  <span>{subtotal.toFixed(2)} ETB</span>
+                </div>
+                
+                {discount.amount > 0 && (
+                  <div className="flex justify-between text-green-600 mb-2">
+                    <span>Discount ({discount.code})</span>
+                    <span>-{discount.amount.toFixed(2)} ETB</span>
+                  </div>
+                )}
+                
                 <div className="flex justify-between text-xl font-bold">
                   <span>Total</span>
-                  <span className="text-accent-500">{getTotal().toFixed(2)} ETB</span>
+                  <span className="text-accent-500">{finalTotal.toFixed(2)} ETB</span>
                 </div>
               </div>
+            </div>
+            
+            {/* Coupon Code */}
+            <div className="mb-6 pb-6 border-b">
+              <label className="block text-sm font-medium mb-2">Have a coupon?</label>
+              {discount.code ? (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                  <span className="text-green-700 font-medium">{discount.code}</span>
+                  <button
+                    onClick={handleRemoveCoupon}
+                    className="text-red-600 hover:text-red-700 text-sm"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    placeholder="Enter code"
+                    className="input-field flex-1"
+                  />
+                  <button
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading}
+                    className="btn-secondary whitespace-nowrap"
+                  >
+                    {couponLoading ? 'Checking...' : 'Apply'}
+                  </button>
+                </div>
+              )}
             </div>
             
             <button
@@ -343,6 +426,7 @@ export default function Checkout() {
           </div>
         </div>
       </form>
+    </div>
     </div>
   )
 }

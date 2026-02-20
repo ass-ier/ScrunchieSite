@@ -1,10 +1,18 @@
 import { useParams, Link } from 'react-router-dom'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function OrderConfirmation() {
   const { orderId } = useParams()
   
+  const breadcrumbItems = [
+    { label: 'Home', path: '/' },
+    { label: 'Order Confirmation', path: null }
+  ]
+  
   return (
-    <div className="container mx-auto px-4 py-16">
+    <div>
+      <Breadcrumbs customItems={breadcrumbItems} />
+      <div className="container mx-auto px-4 py-16">
       <div className="max-w-2xl mx-auto text-center">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -49,6 +57,7 @@ export default function OrderConfirmation() {
           </Link>
         </div>
       </div>
+    </div>
     </div>
   )
 }

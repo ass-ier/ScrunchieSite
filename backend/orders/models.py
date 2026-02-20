@@ -36,7 +36,13 @@ class Order(models.Model):
     receipt_url = models.ImageField(upload_to='receipts/')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     admin_note = models.TextField(blank=True, null=True)
+    
+    # Coupon fields
+    coupon = models.ForeignKey('coupons.Coupon', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

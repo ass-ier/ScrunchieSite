@@ -79,4 +79,20 @@ export const ordersAPI = {
   getAuditLogs: (id) => api.get(`/orders/${id}/audit_logs/`),
 }
 
+export const wishlistAPI = {
+  getAll: () => api.get('/wishlist/'),
+  add: (product_id) => api.post('/wishlist/', { product_id }),
+  remove: (id) => api.delete(`/wishlist/${id}/`),
+}
+
+export const reviewsAPI = {
+  getByProduct: (product_id) => api.get('/reviews/', { params: { product_id } }),
+  create: (data) => api.post('/reviews/', data),
+  getStats: (product_id) => api.get('/reviews/product_stats/', { params: { product_id } }),
+}
+
+export const couponsAPI = {
+  validate: (code, amount) => api.post('/coupons/validate/', { code, amount }),
+}
+
 export default api

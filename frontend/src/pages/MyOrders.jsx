@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ordersAPI } from '../lib/api'
 import toast from 'react-hot-toast'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function MyOrders() {
   const [orders, setOrders] = useState([])
@@ -33,15 +34,20 @@ export default function MyOrders() {
   
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div>
+        <Breadcrumbs />
+        <div className="container mx-auto px-4 py-16 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-500 mx-auto"></div>
         <p className="mt-4 text-primary-600">Loading your orders...</p>
+      </div>
       </div>
     )
   }
   
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div>
+      <Breadcrumbs />
+      <div className="container mx-auto px-4 py-12">
       <h1 className="font-display text-4xl font-bold text-center mb-12 text-dark">My Orders</h1>
       
       {orders.length === 0 ? (
@@ -202,6 +208,7 @@ export default function MyOrders() {
           </div>
         </div>
       )}
+    </div>
     </div>
   )
 }

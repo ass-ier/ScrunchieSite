@@ -1,11 +1,20 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom'
 import useCartStore from '../store/cartStore'
 import useAuthStore from '../store/authStore'
+import useWishlistStore from '../store/wishlistStore'
+import { useEffect } from 'react'
 
 export default function Layout() {
   const navigate = useNavigate()
   const itemCount = useCartStore(state => state.getItemCount())
   const { isAuthenticated, user, logout } = useAuthStore()
+  const { items: wishlistItems, fetchWishlist } = useWishlistStore()
+  
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchWishlist()
+    }
+  }, [isAuthenticated, fetchWishlist])
   
   const handleLogout = () => {
     logout()
@@ -63,6 +72,24 @@ export default function Layout() {
                   className="text-sm text-cream/80 hover:text-accent-400 transition-colors font-medium"
                 >
                   Login
+                </Link>
+              )}
+              
+              {isAuthenticated && (
+                <Link to="/wishlist" className="relative group">
+                  <svg 
+                    className="w-6 h-6 text-cream group-hover:text-accent-400 transition-colors" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  {wishlistItems.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-accent-400 text-dark text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                      {wishlistItems.length}
+                    </span>
+                  )}
                 </Link>
               )}
               

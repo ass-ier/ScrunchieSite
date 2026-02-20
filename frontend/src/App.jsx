@@ -8,6 +8,7 @@ import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import OrderConfirmation from './pages/OrderConfirmation'
 import MyOrders from './pages/MyOrders'
+import Wishlist from './pages/Wishlist'
 import Register from './pages/auth/Register'
 import VerifyOTP from './pages/auth/VerifyOTP'
 import Login from './pages/auth/Login'
@@ -36,6 +37,11 @@ function App() {
           <Route path="my-orders" element={
             <ProtectedRoute>
               <MyOrders />
+            </ProtectedRoute>
+          } />
+          <Route path="wishlist" element={
+            <ProtectedRoute>
+              <Wishlist />
             </ProtectedRoute>
           } />
         </Route>

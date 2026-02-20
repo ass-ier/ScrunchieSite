@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, Category, ProductSize
+from .models import Product, Category, ProductSize, ProductImage
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -11,6 +11,11 @@ class ProductSizeInline(admin.TabularInline):
     extra = 3
     fields = ['size', 'stock']
 
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 3
+    fields = ['image', 'alt_text', 'is_primary', 'order']
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ['name', 'category', 'price', 'stock', 'color', 'is_available', 'is_featured', 'created_at']
@@ -19,7 +24,7 @@ class ProductAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
     list_editable = ['is_featured']
     actions = ['mark_as_featured', 'mark_as_not_featured']
-    inlines = [ProductSizeInline]
+    inlines = [ProductSizeInline, ProductImageInline]
     
     def mark_as_featured(self, request, queryset):
         updated = queryset.update(is_featured=True)

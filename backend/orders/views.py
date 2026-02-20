@@ -52,11 +52,13 @@ class OrderViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def create(self, request):
         """
-        Create order with stock validation
+        Create order with stock validation and coupon support
         """
         items_data = request.data.get('items', [])
+        coupon_code = request.data.get('coupon_code', '').strip()
         
-        # Validate stock availability
+        # Calculate subtotal
+        subtotal = 0
         for item_data in items_data:
             product = Product.objects.select_for_update().get(id=item_data['product_id'])
             if product.stock < item_data['quantity']:
@@ -64,9 +66,40 @@ class OrderViewSet(viewsets.ModelViewSet):
                     {'error': f'{product.name} has insufficient stock. Available: {product.stock}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            subtotal += item_data['price'] * item_data['quantity']
+        
+        # Validate and apply coupon if provided
+        coupon = None
+        discount_amount = 0
+        if coupon_code:
+            from coupons.models import Coupon
+            try:
+                coupon = Coupon.objects.get(code=coupon_code)
+                is_valid, message = coupon.is_valid()
+                if not is_valid:
+                    return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+                
+                if subtotal < coupon.min_purchase_amount:
+                    return Response(
+                        {'error': f'Minimum purchase amount of {coupon.min_purchase_amount} required'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                discount_amount = coupon.calculate_discount(subtotal)
+            except Coupon.DoesNotExist:
+                return Response({'error': 'Invalid coupon code'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        total_amount = subtotal - discount_amount
         
         # Create order
-        serializer = self.get_serializer(data=request.data)
+        order_data = request.data.copy()
+        order_data.pop('coupon_code', None)
+        order_data['subtotal'] = subtotal
+        order_data['discount_amount'] = discount_amount
+        order_data['total_amount'] = total_amount
+        order_data['coupon'] = coupon.id if coupon else None
+        
+        serializer = self.get_serializer(data=order_data)
         if serializer.is_valid():
             order = serializer.save(user=request.user)
             
@@ -77,6 +110,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                 if product.stock == 0:
                     product.is_available = False
                 product.save()
+            
+            # Mark coupon as used
+            if coupon:
+                coupon.use()
             
             return Response(
                 OrderSerializer(order).data,

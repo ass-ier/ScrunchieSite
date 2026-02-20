@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { productsAPI } from '../lib/api'
+import useWishlistStore from '../store/wishlistStore'
+import useAuthStore from '../store/authStore'
+import toast from 'react-hot-toast'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function Products() {
   const [products, setProducts] = useState([])
@@ -10,7 +14,16 @@ export default function Products() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   
+  const { isAuthenticated } = useAuthStore()
+  const { items: wishlistItems, addToWishlist, removeFromWishlist, isInWishlist, getWishlistItemId, fetchWishlist } = useWishlistStore()
+  
   const sizes = ['S', 'M', 'L']
+  
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchWishlist()
+    }
+  }, [isAuthenticated, fetchWishlist])
   
   useEffect(() => {
     Promise.all([
@@ -21,28 +34,58 @@ export default function Products() {
   }, [])
   
   useEffect(() => {
-    setLoading(true)
     const params = {}
     if (selectedCategory) params.category = selectedCategory
     if (selectedSize) params.size = selectedSize
     if (searchQuery) params.search = searchQuery
     
-    productsAPI.getAll(params).then(res => {
-      setProducts(res.data.results || res.data)
-      setLoading(false)
-    })
+    // Debounce search to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      setLoading(true)
+      productsAPI.getAll(params).then(res => {
+        setProducts(res.data.results || res.data)
+        setLoading(false)
+      }).catch(err => {
+        console.error('Failed to fetch products:', err)
+        setLoading(false)
+      })
+    }, 300)
+    
+    return () => clearTimeout(timeoutId)
   }, [selectedCategory, selectedSize, searchQuery])
   
   const handleSearch = (e) => {
     e.preventDefault()
+    // Search is already handled by useEffect watching searchQuery
   }
   
-  if (loading) {
-    return <div className="container mx-auto px-4 py-16 text-center">Loading...</div>
+  const handleWishlistToggle = async (e, product) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (!isAuthenticated) {
+      toast.error('Please login to add to wishlist')
+      return
+    }
+    
+    if (isInWishlist(product.id)) {
+      const itemId = getWishlistItemId(product.id)
+      const success = await removeFromWishlist(itemId)
+      if (success) {
+        toast.success('Removed from wishlist')
+      }
+    } else {
+      const success = await addToWishlist(product)
+      if (success) {
+        toast.success('Added to wishlist')
+      }
+    }
   }
   
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div>
+      <Breadcrumbs />
+      <div className="container mx-auto px-4 py-12">
       <h1 className="font-display text-5xl font-bold text-center mb-12">Our Products</h1>
       
       {/* Search and Filters */}
@@ -128,14 +171,45 @@ export default function Products() {
       </div>
       
       {/* Products Grid */}
-      {products.length === 0 ? (
+      {loading && products.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-500 mx-auto mb-4"></div>
+          <p className="text-primary-600">Loading products...</p>
+        </div>
+      ) : products.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-xl text-primary-600">No products found matching your criteria.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div className="relative">
+          {loading && (
+            <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-500"></div>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {products.map(product => (
-            <Link key={product.id} to={`/products/${product.slug}`} className="card group">
+            <Link key={product.id} to={`/products/${product.slug}`} className="card group relative">
+              {/* Wishlist Button */}
+              {isAuthenticated && (
+                <button
+                  onClick={(e) => handleWishlistToggle(e, product)}
+                  className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/90 hover:bg-white shadow-md transition-all"
+                >
+                  <svg 
+                    className={`w-6 h-6 transition-colors ${
+                      isInWishlist(product.id) 
+                        ? 'fill-red-500 text-red-500' 
+                        : 'fill-none text-primary-600'
+                    }`}
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </button>
+              )}
+              
               <div className="aspect-square overflow-hidden">
                 <img 
                   src={product.image} 
@@ -177,7 +251,9 @@ export default function Products() {
             </Link>
           ))}
         </div>
+        </div>
       )}
+    </div>
     </div>
   )
 }

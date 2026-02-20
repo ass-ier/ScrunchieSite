@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import useCartStore from '../store/cartStore'
 import { productsAPI } from '../lib/api'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function Cart() {
   const navigate = useNavigate()
@@ -43,18 +44,23 @@ export default function Cart() {
   
   if (items.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div>
+        <Breadcrumbs />
+        <div className="container mx-auto px-4 py-16 text-center">
         <h1 className="font-display text-4xl font-bold mb-4">Your Cart is Empty</h1>
         <p className="text-primary-600 mb-8">Add some items to get started!</p>
         <Link to="/products" className="btn-primary inline-block">
           Browse Products
         </Link>
       </div>
+      </div>
     )
   }
   
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div>
+      <Breadcrumbs />
+      <div className="container mx-auto px-4 py-12">
       <h1 className="font-display text-4xl font-bold mb-8">Shopping Cart</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -142,6 +148,7 @@ export default function Cart() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   )
 }
