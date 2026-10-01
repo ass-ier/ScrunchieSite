@@ -4,6 +4,145 @@ This is the current deployment guide. Older setup/checklist documents are
 historical. Target: Vercel storefront + Render Django API, PostgreSQL, persistent
 file storage and SMTP email. No automatic payment gateway is used.
 
+## Share the same local preview with the owner
+
+Use this path to show the owner the **current local design and 12 demo products**,
+not an empty shop. The bundle at `backend/products/owner_preview/` includes the
+public catalog snapshot and matching product pictures. It preserves the local
+names, descriptions, prices, colors, S/M/L quantities, featured flags, delivery
+fee and demo announcement. The Moss product currently has 53 units; the others
+have 54. There are no active promotions in the snapshot.
+
+The owner's transparent portraits, scroll animations and other frontend assets
+are already in `frontend/public/` and deploy with Vercel. The public product
+records and product image uploads live separately in PostgreSQL and Render's
+media disk. **Pushing the repository does not copy a local database or media
+directory.** The one-time import below takes care of the bundled preview data.
+
+No local users, admin passwords, orders, receipts, private customer details or
+payment credentials are included. The bundled transfer details remain
+`DEMO ONLY - DO NOT TRANSFER` / `DEMO-ACCOUNT`; this is not a store for real
+payments. You must create a new owner account on Render if you want to demonstrate
+the management dashboard.
+
+### A. Push the new preview bundle and loader
+
+Commit and push the updated repository, including the new
+`load_owner_preview` command, `backend/products/owner_preview/`, the tests and
+this guide. Choose the **same deployed branch** on both Vercel and Render. If you
+use `main`, merge these changes into `main` first. Local files are not visible to
+either provider until pushed.
+
+For a fresh owner-preview environment, create new services rather than replacing
+an existing production database. If you reuse existing services, back up their
+database and uploads first. The import refuses to overwrite existing content.
+
+### B. Create the Vercel frontend to obtain its URL
+
+1. In Vercel choose **Add New → Project**, import `ass-ier/ScrunchieSite`, and
+   select the branch from step A.
+2. Set **Root Directory** to `frontend` and **Framework Preset** to **Vite**.
+3. Use **Install Command** `npm ci`, **Build Command** `npm run build`, and
+   **Output Directory** `dist`.
+4. Under **Environment Variables**, add `VITE_API_URL` for **Production**. If you
+   already know your Render URL, use `https://YOUR-API.onrender.com/api`.
+   Otherwise use `https://api.invalid/api` temporarily so the first preview
+   cannot accidentally call the old backend committed in `.env.production`.
+5. Click **Deploy**. Copy the assigned production URL, for example
+   `https://YOUR-STORE.vercel.app`. The first deployment may show catalog-loading
+   errors until Render is connected; do not share it yet.
+
+If a Vercel project already exists, update these settings instead of importing
+another one. The value of `VITE_API_URL` is baked into each build; changing it
+later requires a redeploy.
+
+### C. Create Render services
+
+The supplied Blueprint creates a paid web service with a persistent disk,
+a PostgreSQL database, and a five-minute email retry cron job. Review the
+estimated charges before applying it. **Do not select a free web service for
+this upload-based setup**; its ephemeral files will not survive redeploys.
+
+1. In Render choose **New → Blueprint** and connect `ass-ier/ScrunchieSite`.
+2. Select the same branch as Vercel. Use the repository's root `render.yaml`.
+3. Supply the requested values:
+
+| Variable | What to enter |
+| --- | --- |
+| `SECRET_KEY` | A new random value of at least 50 characters; generate locally with `python3 -c "import secrets; print(secrets.token_urlsafe(64))"` |
+| `FRONTEND_URL` | The complete Vercel production URL from step B, without a trailing slash |
+| `EMAIL_HOST` | Your transactional email provider's SMTP hostname |
+| `EMAIL_HOST_USER` | That provider's SMTP username |
+| `EMAIL_HOST_PASSWORD` | That provider's SMTP password/key |
+| `DEFAULT_FROM_EMAIL` | `AKEYA <orders@your-verified-domain>` using a sender verified with that provider |
+
+4. Review and apply the Blueprint. Wait for `akeya-api` and `akeya-db` to become
+   available. Copy the API service's actual `.onrender.com` URL.
+5. Check `https://YOUR-API.onrender.com/api/health/`; it should return
+   `{"status":"ok"}`.
+
+The Blueprint supplies `DEBUG=False`, Python 3.13.7, the internal PostgreSQL
+connection, the API hostname, SMTP port 587/TLS, `/var/data/media`, and
+`/var/data/private-media`. It mounts a persistent disk at `/var/data`.
+Use a real SMTP configuration even for this hosted preview: secure production
+startup currently requires it. Do not turn `DEBUG=True` to bypass that check.
+If you use SMTP port 465, follow the SSL instructions later in this guide.
+
+### D. Load the local products into Render once
+
+Open **Render → akeya-api → Shell**, and run:
+
+```sh
+python manage.py load_owner_preview --confirm-demo
+python manage.py createsuperuser
+```
+
+The first command should report **12 products and 4 categories**. It copies
+the bundled photos onto the persistent media disk and inserts the catalog and
+demo settings into PostgreSQL. It works with `DEBUG=False` and does not need
+the frontend folder, which Render cannot access from a `backend` root directory.
+
+When creating the superuser, enter an international phone number (`+251...`),
+a username and a strong password. These credentials are for the frontend's
+`/admin/login` page; do not reuse the local preview password.
+
+**Run the import only once, in a fresh database.** Do not add it to the build or
+start command. Rerunning safely refuses rather than resetting stock, prices,
+owner edits, settings or orders. If you see "Refusing to overwrite", the database
+already contains data—do not delete it to force the import. Use a separate
+preview database, or keep/manage the existing catalog.
+
+### E. Connect Vercel to the new API
+
+1. Open **Vercel → Project → Settings → Environment Variables**.
+2. Set Production `VITE_API_URL` to
+   `https://YOUR-ACTUAL-API.onrender.com/api` (include `/api`).
+3. In **Deployments**, redeploy the production deployment.
+4. On Render, confirm `FRONTEND_URL` is the exact Vercel production origin you
+   will share. If you change the frontend domain, update this value and resync
+   the Blueprint so the retry job gets the same domain. CORS defaults to this URL.
+
+### F. Check and share the owner preview
+
+- Open `/products`: all 12 products should appear with photos, sizes, colors and
+  the same prices/stock as the captured local snapshot.
+- Open the home page: the same four featured products and owner-portrait
+  transitions should appear. The Instagram/TikTok/Telegram icons are unlinked,
+  just like the current local preview, until URLs are added in Store settings.
+- Sign in at `/admin/login` using the new Render superuser to show management.
+- Refresh `/products/demo-satin-lilac` directly to confirm Vercel deep links.
+- Check in a private/incognito browser without your Vercel login. If deployment
+  protection requires authentication, share the production domain and adjust
+  **Settings → Deployment Protection** for the access you intend.
+- Share the **Vercel production URL**, not localhost and not the Render API URL.
+
+The hosted preview matches the public local catalog snapshot, not local browser
+state: carts, login sessions, cookies and test order history are not copied.
+This is a one-time snapshot, not synchronization—subsequent local edits do not
+automatically change the hosted database. Tell the owner **not to transfer real
+money** to the demonstration account. Real launch requires the remaining
+production checks below.
+
 ## 1. Prepare credentials and business details
 
 - Rotate any credentials previously committed in `backend/.env`. Removing it

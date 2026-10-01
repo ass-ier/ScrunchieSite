@@ -202,6 +202,14 @@ launch checks. `render.yaml` defines a paid API service, PostgreSQL, a persisten
 media disk and a five-minute email retry job. `frontend/vercel.json` handles SPA
 routes on Vercel.
 
+To share the same current catalog with the owner, follow the guide's **"Share
+the same local preview with the owner"** section. A snapshot of the 12 visible
+local products and their photos is bundled inside `backend/products/owner_preview/`.
+On a fresh Render database, run `python manage.py load_owner_preview --confirm-demo`
+once. This works with `DEBUG=False`, copies photos onto Render's persistent
+disk, and refuses to overwrite existing content. It does not copy local users,
+passwords, orders, receipts or browser carts, and is not automatic synchronization.
+
 The source is prepared for deployment, but no hosting resources, sender domain,
 real transfer accounts or credentials are provisioned by the code. Verify email
 delivery using your own SMTP account before launch. Older roadmap, feature and

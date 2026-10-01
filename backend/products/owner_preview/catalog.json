@@ -1,0 +1,424 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-01T22:52:41.143530+00:00",
+  "purpose": "Owner preview: public demo storefront only. No users, orders, receipts or private data.",
+  "categories": [
+    {
+      "name": "Satin",
+      "slug": "satin"
+    },
+    {
+      "name": "Organza",
+      "slug": "organza"
+    },
+    {
+      "name": "Velvet",
+      "slug": "velvet"
+    },
+    {
+      "name": "Linen",
+      "slug": "linen"
+    }
+  ],
+  "products": [
+    {
+      "name": "The Satin Cloud",
+      "slug": "demo-satin-lilac",
+      "description": "A lilac scrunchie from the Satin collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "180.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": true,
+      "color": "Lilac",
+      "color_hex": "#b29aca",
+      "style": "satin",
+      "category_slug": "satin",
+      "image_file": "demo-satin-lilac.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Satin Cloud",
+      "slug": "demo-satin-moss",
+      "description": "A moss scrunchie from the Satin collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "180.00",
+      "stock": 53,
+      "is_available": true,
+      "is_featured": false,
+      "color": "Moss",
+      "color_hex": "#6a8360",
+      "style": "satin",
+      "category_slug": "satin",
+      "image_file": "demo-satin-moss.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 17
+        }
+      ]
+    },
+    {
+      "name": "The Satin Cloud",
+      "slug": "demo-satin-butter",
+      "description": "A butter scrunchie from the Satin collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "180.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": false,
+      "color": "Butter",
+      "color_hex": "#dfc36f",
+      "style": "satin",
+      "category_slug": "satin",
+      "image_file": "demo-satin-butter.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Airy Ruffle",
+      "slug": "demo-organza-rose",
+      "description": "A rose scrunchie from the Organza collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "220.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": true,
+      "color": "Rose",
+      "color_hex": "#d69caa",
+      "style": "organza",
+      "category_slug": "organza",
+      "image_file": "demo-organza-rose.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Airy Ruffle",
+      "slug": "demo-organza-sky",
+      "description": "A sky scrunchie from the Organza collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "220.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": false,
+      "color": "Sky",
+      "color_hex": "#86adc8",
+      "style": "organza",
+      "category_slug": "organza",
+      "image_file": "demo-organza-sky.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Airy Ruffle",
+      "slug": "demo-organza-pearl",
+      "description": "A pearl scrunchie from the Organza collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "220.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": false,
+      "color": "Pearl",
+      "color_hex": "#ded7ca",
+      "style": "organza",
+      "category_slug": "organza",
+      "image_file": "demo-organza-pearl.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Velvet Crush",
+      "slug": "demo-velvet-cinnamon",
+      "description": "A cinnamon scrunchie from the Velvet collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "200.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": true,
+      "color": "Cinnamon",
+      "color_hex": "#ab6550",
+      "style": "velvet",
+      "category_slug": "velvet",
+      "image_file": "demo-velvet-cinnamon.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Velvet Crush",
+      "slug": "demo-velvet-berry",
+      "description": "A berry scrunchie from the Velvet collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "200.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": false,
+      "color": "Berry",
+      "color_hex": "#8d3e63",
+      "style": "velvet",
+      "category_slug": "velvet",
+      "image_file": "demo-velvet-berry.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Velvet Crush",
+      "slug": "demo-velvet-midnight",
+      "description": "A midnight scrunchie from the Velvet collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "200.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": false,
+      "color": "Midnight",
+      "color_hex": "#354a65",
+      "style": "velvet",
+      "category_slug": "velvet",
+      "image_file": "demo-velvet-midnight.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Everyday Loop",
+      "slug": "demo-linen-oat",
+      "description": "A oat scrunchie from the Linen collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "160.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": true,
+      "color": "Oat",
+      "color_hex": "#bfaa88",
+      "style": "linen",
+      "category_slug": "linen",
+      "image_file": "demo-linen-oat.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Everyday Loop",
+      "slug": "demo-linen-olive",
+      "description": "A olive scrunchie from the Linen collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "160.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": false,
+      "color": "Olive",
+      "color_hex": "#939361",
+      "style": "linen",
+      "category_slug": "linen",
+      "image_file": "demo-linen-olive.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    },
+    {
+      "name": "The Everyday Loop",
+      "slug": "demo-linen-cocoa",
+      "description": "A cocoa scrunchie from the Linen collection. Illustrative sample product for exploring the store; images, pricing and stock are demonstration data.",
+      "price": "160.00",
+      "stock": 54,
+      "is_available": true,
+      "is_featured": false,
+      "color": "Cocoa",
+      "color_hex": "#805f50",
+      "style": "linen",
+      "category_slug": "linen",
+      "image_file": "demo-linen-cocoa.webp",
+      "sizes_data": [
+        {
+          "size": "L",
+          "stock": 18
+        },
+        {
+          "size": "M",
+          "stock": 18
+        },
+        {
+          "size": "S",
+          "stock": 18
+        }
+      ]
+    }
+  ],
+  "images": [
+    {
+      "file": "demo-satin-lilac.webp",
+      "sha256": "2bac986db41df910cc36a01294ebb5e9911ba285a45bdc46103d006d2a13e648"
+    },
+    {
+      "file": "demo-satin-moss.webp",
+      "sha256": "72561eef5f9987b702cad9e75ea1e4f17aa6fc56dc5baf312b650f70a74c3b5f"
+    },
+    {
+      "file": "demo-satin-butter.webp",
+      "sha256": "3c5eb3aa7be70bf7e96618361aa3e7ebf4046c0ef1bea447c5046204122e409e"
+    },
+    {
+      "file": "demo-organza-rose.webp",
+      "sha256": "52168a3baf073bc69ab2fa88086a98c8528897937a6ffe36617fb9fb0497e4c8"
+    },
+    {
+      "file": "demo-organza-sky.webp",
+      "sha256": "37900127a319296ceb63dc069d8e5a88ebe263bac2f55ca9c83201e4102be64e"
+    },
+    {
+      "file": "demo-organza-pearl.webp",
+      "sha256": "f37b569dea688e78a82c637b69fe6f79455632ab8a68d8af4aff575a909e4c4e"
+    },
+    {
+      "file": "demo-velvet-cinnamon.webp",
+      "sha256": "3747ebb8b9bf095c0258321a5bd5b504f304cac4bebf5c8ea4fac0d28e25f6f7"
+    },
+    {
+      "file": "demo-velvet-berry.webp",
+      "sha256": "5174953c0d2220fa34f8c369a875f530fdb82e4397c75131f80d9ba4e9a8cd1c"
+    },
+    {
+      "file": "demo-velvet-midnight.webp",
+      "sha256": "636470119089d6f6b5ec41ac8848340aa0b5ef1ff00c9177418eb3e0f3f103cb"
+    },
+    {
+      "file": "demo-linen-oat.webp",
+      "sha256": "84d7163b191f6442ab1dd78ecfea110bc5554aba5499486cdbaa75a540c8e9a9"
+    },
+    {
+      "file": "demo-linen-olive.webp",
+      "sha256": "0e59204e2aa047383045be86d117793241a5e6d915fd63f72d5400a8b866eed4"
+    },
+    {
+      "file": "demo-linen-cocoa.webp",
+      "sha256": "ccbadebd472b39202b2f82597ba6bae865e27267d1c1b40eb59158cc27ad1409"
+    }
+  ],
+  "store": {
+    "account_name": "DEMO ONLY - DO NOT TRANSFER",
+    "telebirr": "",
+    "cbe": "DEMO-ACCOUNT",
+    "dashen": "",
+    "pickup_address": "Preview pickup location",
+    "delivery_fee": "30.00",
+    "announcement": "Preview collection · Illustrative products & sample prices. Please do not send real payments.",
+    "instagram_url": "",
+    "tiktok_url": "",
+    "telegram_url": ""
+  },
+  "promotions": []
+}
