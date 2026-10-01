@@ -22,9 +22,17 @@ class ProductAdmin(admin.ModelAdmin):
     list_filter = ['category', 'is_available', 'is_featured', 'color']
     search_fields = ['name', 'description', 'color']
     prepopulated_fields = {'slug': ('name',)}
-    list_editable = ['is_featured']
-    actions = ['mark_as_featured', 'mark_as_not_featured']
+    actions = None
     inlines = [ProductSizeInline, ProductImageInline]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
     
     def mark_as_featured(self, request, queryset):
         updated = queryset.update(is_featured=True)

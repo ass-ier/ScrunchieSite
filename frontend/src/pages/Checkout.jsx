@@ -1,441 +1,174 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import useCartStore from '../store/cartStore'
 import useAuthStore from '../store/authStore'
-import { ordersAPI, couponsAPI } from '../lib/api'
-import toast from 'react-hot-toast'
+import { ordersAPI, productsAPI, apiError } from '../lib/api'
 import Breadcrumbs from '../components/Breadcrumbs'
 
-const PAYMENT_INFO = {
-  telebirr: { number: '0987654321', name: 'Maya' },
-  cbe: { account: '1000198657723', name: 'Maya' },
-  dashen: { account: '123134135141', name: 'Maya' },
-}
+const methodNames = { telebirr: 'Telebirr', cbe: 'Commercial Bank of Ethiopia', dashen: 'Dashen Bank' }
+const money = (value) => `${Number(value).toFixed(2)} ETB`
 
 export default function Checkout() {
   const navigate = useNavigate()
-  const { items, getTotal, clearCart } = useCartStore()
-  const { user, isAuthenticated } = useAuthStore()
-  const [loading, setLoading] = useState(false)
-  const [receiptPreview, setReceiptPreview] = useState(null)
-  const [couponCode, setCouponCode] = useState('')
-  const [couponLoading, setCouponLoading] = useState(false)
-  const [discount, setDiscount] = useState({ amount: 0, code: '' })
-  
-  const [formData, setFormData] = useState({
-    full_name: '',
-    phone: '',
-    email: '',
-    address: '',
-    delivery_method: 'delivery',
-    selected_date: '',
-    delivery_notes: '',
-    payment_method: 'telebirr',
-    transaction_reference: '',
-    receipt_url: null,
+  const { items, clearCart } = useCartStore()
+  const user = useAuthStore(state => state.user)
+  const [store, setStore] = useState(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [quote, setQuote] = useState(null)
+  const [receipt, setReceipt] = useState(null)
+  const [preview, setPreview] = useState('')
+  const [checkoutKey] = useState(() => crypto.randomUUID())
+  const submitting = useRef(false)
+  const [form, setForm] = useState({
+    full_name: [user?.first_name, user?.last_name].filter(Boolean).join(' '),
+    phone: user?.phone || '', email: user?.email || '', address: '',
+    delivery_method: 'delivery', selected_date: '', delivery_notes: '',
+    payment_method: '', transaction_reference: '', coupon_code: '',
   })
-  
-  // Pre-fill user data if authenticated
+  const cartItems = items.map(item => ({ product_id: item.id, quantity: item.quantity, size: item.selectedSize || '' }))
+  const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString('en-CA', { timeZone: 'Africa/Addis_Ababa' })
+  const change = (event) => setForm(prev => ({ ...prev, [event.target.name]: event.target.value }))
+
   useEffect(() => {
-    if (!isAuthenticated) {
-      toast.error('Please login to checkout')
-      navigate('/login')
-      return
-    }
-    
-    if (user) {
-      // Combine first_name and last_name for full_name
-      const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ')
-      
-      setFormData(prev => ({
-        ...prev,
-        full_name: fullName || '',
-        phone: user.phone || '',
-        email: user.email || '',
-      }))
-    }
-  }, [user, isAuthenticated, navigate])
-  
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-  
-  const handleFileChange = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size must be less than 5MB')
-        return
-      }
-      if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-        toast.error('Only JPG, JPEG, and PNG files are allowed')
-        return
-      }
-      setFormData(prev => ({ ...prev, receipt_url: file }))
-      setReceiptPreview(URL.createObjectURL(file))
-    }
-  }
-  
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) {
-      toast.error('Please enter a coupon code')
-      return
-    }
-    
-    setCouponLoading(true)
+    let active = true
+    productsAPI.getSettings().then(({ data }) => {
+      if (!active) return
+      setStore(data)
+      setForm(prev => ({ ...prev, payment_method: Object.keys(methodNames).find(key => data[key]) || '' }))
+    }).catch(error => { if (active) setError(apiError(error, 'Unable to load payment details. Refresh this page to retry.')) })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!receipt) { setPreview(''); return }
+    const url = URL.createObjectURL(receipt)
+    setPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [receipt])
+
+  const getQuote = async (event) => {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
     try {
-      const response = await couponsAPI.validate(couponCode, getTotal())
-      setDiscount({
-        amount: response.data.discount_amount,
-        code: couponCode
+      const { data } = await ordersAPI.quote({ items: cartItems, coupon_code: form.coupon_code, delivery_method: form.delivery_method })
+      setQuote(data)
+    } catch (error) {
+      setError(apiError(error, 'Unable to calculate your order. Try again.'))
+    } finally { setBusy(false) }
+  }
+
+  const submitOrder = async (event) => {
+    event.preventDefault()
+    if (submitting.current) return
+    if (!receipt) { setError('Please upload a screenshot of your transfer receipt.'); return }
+    submitting.current = true
+    setBusy(true)
+    setError('')
+    try {
+      const { data } = await ordersAPI.create({
+        ...form, items: cartItems, receipt_url: receipt,
+        expected_total: quote.total_amount, checkout_key: checkoutKey,
       })
-      toast.success('Coupon applied successfully!')
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Invalid coupon code')
-      setDiscount({ amount: 0, code: '' })
-    } finally {
-      setCouponLoading(false)
-    }
-  }
-  
-  const handleRemoveCoupon = () => {
-    setDiscount({ amount: 0, code: '' })
-    setCouponCode('')
-    toast.success('Coupon removed')
-  }
-  
-  const subtotal = getTotal()
-  const finalTotal = subtotal - discount.amount
-  
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    
-    if (items.length === 0) {
-      toast.error('Your cart is empty')
-      return
-    }
-    
-    if (!formData.receipt_url) {
-      toast.error('Please upload payment receipt')
-      return
-    }
-    
-    if (formData.delivery_method === 'delivery' && !formData.address) {
-      toast.error('Please enter delivery address')
-      return
-    }
-    
-    setLoading(true)
-    
-    try {
-      const orderData = {
-        ...formData,
-        total_amount: finalTotal,
-        coupon_code: discount.code || '',
-        items: items.map(item => ({
-          product_id: item.id,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-      }
-      
-      const response = await ordersAPI.create(orderData)
+      sessionStorage.setItem(`order-${data.order_id}`, data.tracking_token)
       clearCart()
-      toast.success('Order placed successfully!')
-      navigate(`/order-confirmation/${response.data.order_id}`)
+      navigate(`/order-confirmation/${data.order_id}`, { state: { email: form.email, emailSent: data.email_sent } })
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to place order')
-    } finally {
-      setLoading(false)
-    }
+      setError(apiError(error, 'Your order could not be confirmed. Retry with the same transaction ID; do not transfer again.'))
+    } finally { setBusy(false); submitting.current = false }
   }
-  
-  const getTomorrowDate = () => {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    return tomorrow.toISOString().split('T')[0]
-  }
-  
+
+  if (!items.length) return <div className="container mx-auto px-4 py-16"><h1 className="text-3xl mb-4">Your cart is empty</h1><Link to="/products" className="btn-primary inline-block">Browse scrunchies</Link></div>
+
   return (
     <div>
       <Breadcrumbs />
-      <div className="container mx-auto px-4 py-12">
-      <h1 className="font-display text-4xl font-bold mb-8">Checkout</h1>
-      
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Customer Information */}
-          <div className="card p-6">
-            <h2 className="font-display text-2xl font-semibold mb-4">Customer Information</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Full Name *</label>
-                <input
-                  type="text"
-                  name="full_name"
-                  value={formData.full_name}
-                  onChange={handleChange}
-                  required
-                  className="input-field"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Phone Number *</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                  className="input-field"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Email (Optional)</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="input-field"
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* Delivery Method */}
-          <div className="card p-6">
-            <h2 className="font-display text-2xl font-semibold mb-4">Delivery Method</h2>
-            <div className="space-y-4">
-              <div className="flex space-x-4">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="delivery_method"
-                    value="delivery"
-                    checked={formData.delivery_method === 'delivery'}
-                    onChange={handleChange}
-                    className="w-4 h-4"
-                  />
-                  <span>Delivery</span>
-                </label>
-                
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="delivery_method"
-                    value="pickup"
-                    checked={formData.delivery_method === 'pickup'}
-                    onChange={handleChange}
-                    className="w-4 h-4"
-                  />
-                  <span>Pickup</span>
-                </label>
-              </div>
-              
-              {formData.delivery_method === 'delivery' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Delivery Address *</label>
-                    <textarea
-                      name="address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      required
-                      rows={3}
-                      className="input-field"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Delivery Notes (Optional)</label>
-                    <textarea
-                      name="delivery_notes"
-                      value={formData.delivery_notes}
-                      onChange={handleChange}
-                      rows={2}
-                      className="input-field"
-                    />
-                  </div>
-                </>
-              )}
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {formData.delivery_method === 'delivery' ? 'Delivery Date *' : 'Pickup Date *'}
-                </label>
-                <input
-                  type="date"
-                  name="selected_date"
-                  value={formData.selected_date}
-                  onChange={handleChange}
-                  min={getTomorrowDate()}
-                  required
-                  className="input-field"
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* Payment Section */}
-          <div className="card p-6">
-            <h2 className="font-display text-2xl font-semibold mb-4">Payment Method</h2>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                {Object.entries(PAYMENT_INFO).map(([key, info]) => (
-                  <label key={key} className="flex items-center space-x-2 cursor-pointer p-3 rounded-lg hover:bg-primary-50">
-                    <input
-                      type="radio"
-                      name="payment_method"
-                      value={key}
-                      checked={formData.payment_method === key}
-                      onChange={handleChange}
-                      className="w-4 h-4"
-                    />
-                    <span className="capitalize font-medium">{key}</span>
-                  </label>
-                ))}
-              </div>
-              
-              {/* Payment Instructions */}
-              <div className="bg-accent-50 border border-accent-200 rounded-lg p-4">
-                <h3 className="font-semibold mb-2">Payment Instructions</h3>
-                {formData.payment_method === 'telebirr' && (
-                  <div>
-                    <p>Transfer to: <span className="font-bold">{PAYMENT_INFO.telebirr.number}</span></p>
-                    <p>Name: <span className="font-bold">{PAYMENT_INFO.telebirr.name}</span></p>
-                  </div>
-                )}
-                {formData.payment_method === 'cbe' && (
-                  <div>
-                    <p>Account: <span className="font-bold">{PAYMENT_INFO.cbe.account}</span></p>
-                    <p>Name: <span className="font-bold">{PAYMENT_INFO.cbe.name}</span></p>
-                  </div>
-                )}
-                {formData.payment_method === 'dashen' && (
-                  <div>
-                    <p>Account: <span className="font-bold">{PAYMENT_INFO.dashen.account}</span></p>
-                    <p>Name: <span className="font-bold">{PAYMENT_INFO.dashen.name}</span></p>
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Transaction Reference *</label>
-                <input
-                  type="text"
-                  name="transaction_reference"
-                  value={formData.transaction_reference}
-                  onChange={handleChange}
-                  required
-                  placeholder="Enter transaction reference number"
-                  className="input-field"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Upload Receipt * (Max 5MB)</label>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/jpg"
-                  onChange={handleFileChange}
-                  required
-                  className="input-field"
-                />
-                {receiptPreview && (
-                  <img src={receiptPreview} alt="Receipt preview" className="mt-4 max-w-xs rounded-lg" />
-                )}
-              </div>
-            </div>
-          </div>
+      <div className="max-w-6xl mx-auto px-4 py-10">
+        <h1 className="text-4xl mb-3">Checkout</h1>
+        <p className="text-primary-700 mb-8">No account needed. Transfer your payment, then send us the receipt for review.</p>
+        <ol className="flex gap-5 text-sm mb-8" aria-label="Checkout progress">
+          <li aria-current={!quote ? 'step' : undefined} className={!quote ? 'font-bold' : ''}>1. Your details</li>
+          <li aria-current={quote ? 'step' : undefined} className={quote ? 'font-bold' : ''}>2. Transfer &amp; receipt</li>
+        </ol>
+        {error && <div role="alert" className="error-message mb-6">{error}</div>}
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-10 items-start">
+          <form onSubmit={quote ? submitOrder : getQuote} data-stage={quote ? 'payment' : 'details'} className="checkout-form space-y-7 min-w-0">
+            {!quote ? (
+              <>
+                <section className="panel space-y-4">
+                  <h2 className="text-2xl">Your details</h2>
+                  <label className="field-label">Full name<input name="full_name" autoComplete="name" maxLength={200} required value={form.full_name} onChange={change} className="input-field" /></label>
+                  <label className="field-label">Phone number<input name="phone" type="tel" autoComplete="tel" maxLength={20} placeholder="+251..." required value={form.phone} onChange={change} className="input-field" /></label>
+                  <label className="field-label">Email address<input name="email" type="email" autoComplete="email" maxLength={254} required value={form.email} onChange={change} aria-describedby="email-purpose" className="input-field" /></label>
+                  <p id="email-purpose" className="text-sm text-primary-700">We will use this email to send your order confirmation and let you know whether your payment has been authenticated or declined. It will not subscribe you to marketing emails.</p>
+                </section>
+                <section className="panel space-y-4">
+                  <h2 className="text-2xl">Delivery or pickup</h2>
+                  <label className="field-label">Receive your order<select name="delivery_method" value={form.delivery_method} onChange={change} className="input-field">
+                    <option value="delivery">Delivery</option>
+                    {store?.pickup_address && <option value="pickup">Pickup</option>}
+                  </select></label>
+                  {form.delivery_method === 'delivery'
+                    ? <label className="field-label">Delivery address<textarea name="address" required maxLength={2000} value={form.address} onChange={change} autoComplete="street-address" rows={3} className="input-field" /></label>
+                    : <p className="text-primary-700">Pickup location: {store?.pickup_address}</p>}
+                  <label className="field-label">Requested {form.delivery_method} date<input name="selected_date" type="date" min={tomorrow} required value={form.selected_date} onChange={change} className="input-field" /></label>
+                  <label className="field-label">Delivery notes (optional)<textarea name="delivery_notes" maxLength={2000} value={form.delivery_notes} onChange={change} rows={2} className="input-field" /></label>
+                  <label className="field-label">Discount code (optional)<input name="coupon_code" maxLength={50} value={form.coupon_code} onChange={change} className="input-field uppercase" /></label>
+                </section>
+                <button disabled={busy || !store} className="btn-primary w-full">{busy ? 'Checking prices and availability...' : 'Review total & payment details'}</button>
+              </>
+            ) : (
+              <>
+                <section className="panel space-y-4">
+                  <div className="flex justify-between gap-4"><h2 className="text-2xl">Transfer {money(quote.total_amount)}</h2><button type="button" disabled={busy} onClick={() => { setQuote(null); setError('') }} className="text-sm underline">Edit details</button></div>
+                  <p className="text-sm text-primary-700">Send exactly this total. Use the account holder name below to double-check the recipient before transferring.</p>
+                  <p className="text-sm text-primary-700">Stock is reserved when you submit the order, not while this page is open. Submit promptly after transferring. If availability changes, keep your receipt and contact the store; do not transfer again.</p>
+                  <label className="field-label">Payment method<select name="payment_method" required value={form.payment_method} onChange={change} className="input-field">
+                    {Object.entries(methodNames).filter(([key]) => store?.[key]).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+                  </select></label>
+                  <dl className="bg-primary-50 rounded-lg p-5 space-y-2 break-words">
+                    <dt className="text-sm">Account / phone number</dt><dd className="text-xl font-bold select-all">{store?.[form.payment_method]}</dd>
+                    <dt className="text-sm">Account holder</dt><dd className="font-semibold">{store?.account_name}</dd>
+                  </dl>
+                  <label className="field-label">Transaction ID<input name="transaction_reference" required minLength={4} maxLength={200} pattern="[A-Za-z0-9][A-Za-z0-9_\/\-]{3,199}" value={form.transaction_reference} onChange={change} placeholder="Paste the ID from your transfer receipt" className="input-field" /></label>
+                  <label className="field-label">Transfer receipt screenshot<input type="file" required accept="image/png,image/jpeg" className="input-field" onChange={event => {
+                    const file = event.target.files?.[0]
+                    setReceipt(null)
+                    if (!file) return
+                    if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+                      event.target.value = ''
+                      setError('Choose a JPEG or PNG screenshot no larger than 5 MB.')
+                      return
+                    }
+                    setReceipt(file); setError('')
+                  }} /></label>
+                  <p className="text-sm text-primary-700">JPEG or PNG, up to 5 MB. Only the store owner can view your receipt. Hide unrelated balances or transactions before uploading.</p>
+                  {preview && <img src={preview} alt="Your selected transfer receipt" className="max-h-72 max-w-full rounded object-contain" />}
+                </section>
+                <p className="text-sm text-primary-700">We will email <strong>{form.email}</strong> after review. Submitting a receipt does not mean the payment is approved.</p>
+                <button type="submit" disabled={busy || !receipt} className="btn-primary w-full">{busy ? 'Submitting your order...' : 'Submit receipt & place order'}</button>
+              </>
+            )}
+          </form>
+          <aside className="panel lg:sticky lg:top-28">
+            <h2 className="text-2xl mb-5">Your order</h2>
+            <ul className="divide-y divide-primary-100">
+              {(quote?.items || items).map((item, index) => <li key={item.cartItemKey || index} className="py-3 flex justify-between gap-4 text-sm">
+                <span>{item.product_name || item.name}<span className="block text-primary-600">{[item.size || item.selectedSize, item.color].filter(Boolean).join(' / ')} · Qty {item.quantity}</span></span>
+                <span className="whitespace-nowrap">{money(Number(item.price) * item.quantity)}</span>
+              </li>)}
+            </ul>
+            {quote ? <dl className="border-t border-primary-200 pt-4 mt-4 space-y-3 text-sm">
+              <div className="flex justify-between"><dt>Subtotal</dt><dd>{money(quote.subtotal)}</dd></div>
+              <div className="flex justify-between"><dt>Discount</dt><dd>-{money(quote.discount_amount)}</dd></div>
+              <div className="flex justify-between"><dt>Delivery</dt><dd>{money(quote.delivery_fee)}</dd></div>
+              <div className="flex justify-between text-xl font-bold"><dt>Total</dt><dd>{money(quote.total_amount)}</dd></div>
+            </dl> : <p className="mt-5 text-sm text-primary-700">Current prices, stock, delivery costs and discounts will be checked before you transfer.</p>}
+            <Link to="/cart" className="inline-block mt-5 underline text-sm">Return to cart</Link>
+          </aside>
         </div>
-        
-        {/* Order Summary */}
-        <div className="lg:col-span-1">
-          <div className="card p-6 sticky top-24">
-            <h2 className="font-display text-2xl font-semibold mb-4">Order Summary</h2>
-            
-            <div className="space-y-3 mb-6">
-              {items.map(item => (
-                <div key={item.cartItemKey} className="flex justify-between text-sm">
-                  <span>
-                    {item.name}
-                    {item.selectedSize && (
-                      <span className="text-primary-500 ml-1">({item.selectedSize})</span>
-                    )}
-                    {' '}x{item.quantity}
-                  </span>
-                  <span>{(item.price * item.quantity).toFixed(2)} ETB</span>
-                </div>
-              ))}
-              
-              <div className="border-t pt-3">
-                <div className="flex justify-between text-lg font-semibold mb-2">
-                  <span>Subtotal</span>
-                  <span>{subtotal.toFixed(2)} ETB</span>
-                </div>
-                
-                {discount.amount > 0 && (
-                  <div className="flex justify-between text-green-600 mb-2">
-                    <span>Discount ({discount.code})</span>
-                    <span>-{discount.amount.toFixed(2)} ETB</span>
-                  </div>
-                )}
-                
-                <div className="flex justify-between text-xl font-bold">
-                  <span>Total</span>
-                  <span className="text-accent-500">{finalTotal.toFixed(2)} ETB</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Coupon Code */}
-            <div className="mb-6 pb-6 border-b">
-              <label className="block text-sm font-medium mb-2">Have a coupon?</label>
-              {discount.code ? (
-                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
-                  <span className="text-green-700 font-medium">{discount.code}</span>
-                  <button
-                    onClick={handleRemoveCoupon}
-                    className="text-red-600 hover:text-red-700 text-sm"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                    placeholder="Enter code"
-                    className="input-field flex-1"
-                  />
-                  <button
-                    onClick={handleApplyCoupon}
-                    disabled={couponLoading}
-                    className="btn-secondary whitespace-nowrap"
-                  >
-                    {couponLoading ? 'Checking...' : 'Apply'}
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full"
-            >
-              {loading ? 'Processing...' : 'Place Order'}
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
+      </div>
     </div>
   )
 }

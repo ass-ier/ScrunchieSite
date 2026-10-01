@@ -16,6 +16,8 @@ class Coupon(models.Model):
     usage_limit = models.IntegerField(default=1, validators=[MinValueValidator(1)])
     used_count = models.IntegerField(default=0)
     active = models.BooleanField(default=True)
+    is_public = models.BooleanField(default=False)
+    announcement = models.CharField(max_length=200, blank=True)
     min_purchase_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -1,7 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
-import random
+import secrets
 import string
 
 class User(AbstractUser):
@@ -32,7 +32,7 @@ class OTP(models.Model):
     
     @staticmethod
     def generate_code():
-        return ''.join(random.choices(string.digits, k=6))
+        return ''.join(secrets.choice(string.digits) for _ in range(6))
     
     def is_valid(self):
         if self.is_used:
@@ -44,11 +44,10 @@ class OTP(models.Model):
         return True
     
     def verify(self, code):
-        self.attempts += 1
-        self.save()
-        
         if not self.is_valid():
             return False
+        self.attempts += 1
+        self.save()
         
         if self.code == code:
             self.is_used = True

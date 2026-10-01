@@ -14,11 +14,18 @@ from .serializers import (
 )
 from .utils import send_otp_sms, send_test_otp
 from django.conf import settings
+import phonenumbers
 
 User = get_user_model()
 
 class OTPRateThrottle(AnonRateThrottle):
+    scope = 'otp'
     rate = '5/hour'  # Max 5 OTP requests per hour per IP
+
+
+class LoginRateThrottle(AnonRateThrottle):
+    scope = 'login'
+    rate = '10/minute'
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -229,6 +236,7 @@ def reset_password(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def login(request):
     """
     Login with phone and password
@@ -242,6 +250,10 @@ def login(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
+    try:
+        phone = phonenumbers.format_number(phonenumbers.parse(phone, 'ET'), phonenumbers.PhoneNumberFormat.E164)
+    except phonenumbers.NumberParseException:
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
     try:
         user = User.objects.get(phone=phone)
     except User.DoesNotExist:

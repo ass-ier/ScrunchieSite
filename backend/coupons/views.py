@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Coupon
 from .serializers import CouponSerializer, CouponValidationSerializer
+from django.utils import timezone
+from django.db.models import F
 
 
 class CouponViewSet(viewsets.ModelViewSet):
@@ -10,9 +12,14 @@ class CouponViewSet(viewsets.ModelViewSet):
     serializer_class = CouponSerializer
     
     def get_permissions(self):
-        if self.action in ['validate']:
-            return [permissions.IsAuthenticated()]
+        if self.action in ['validate', 'promotions']:
+            return [permissions.AllowAny()]
         return [permissions.IsAdminUser()]
+
+    @action(detail=False, methods=['get'])
+    def promotions(self, request):
+        coupons = Coupon.objects.filter(active=True, is_public=True, expiry_date__gt=timezone.now(), used_count__lt=F('usage_limit'))
+        return Response(list(coupons.values('code', 'type', 'value', 'announcement', 'min_purchase_amount', 'expiry_date')))
     
     @action(detail=False, methods=['post'])
     def validate(self, request):

@@ -4,18 +4,46 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from django.db import transaction
 from django.db.models import Q
-from .models import Product, Category, ProductSize
-from .serializers import ProductSerializer, CategorySerializer
+from django.db.models.deletion import ProtectedError
+from rest_framework.exceptions import ValidationError
+from .models import Product, Category, StoreSettings
+from .serializers import ProductSerializer, CategorySerializer, StoreSettingsSerializer
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     lookup_field = 'slug'
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Category.objects.all()
+        return Category.objects.filter(products__is_available=True).distinct()
     
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [AllowAny()]
         return [IsAdminUser()]
+
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()
+        except ProtectedError:
+            raise ValidationError({'detail': 'Move products to another category before deleting this one.'})
+
+
+class StoreSettingsViewSet(viewsets.ViewSet):
+    def get_permissions(self):
+        return [AllowAny()] if self.action == 'list' else [IsAdminUser()]
+
+    def list(self, request):
+        return Response(StoreSettingsSerializer(StoreSettings.objects.first() or StoreSettings()).data)
+
+    def create(self, request):
+        instance, _ = StoreSettings.objects.get_or_create(pk=1)
+        serializer = StoreSettingsSerializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
@@ -62,7 +90,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 Q(color__icontains=search)
             )
         
-        return queryset
+        return queryset.select_related('category').prefetch_related('sizes', 'images')
     
     @action(detail=False, methods=['get'])
     def featured(self, request):
@@ -73,24 +101,15 @@ class ProductViewSet(viewsets.ModelViewSet):
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):
-        """
-        Update product with stock management
-        """
         instance = self.get_object()
-        old_stock = instance.stock
-        
+        instance = Product.objects.select_for_update().get(pk=instance.pk)
         serializer = self.get_serializer(instance, data=request.data, partial=kwargs.get('partial', False))
-        if serializer.is_valid():
-            product = serializer.save()
-            
-            # Auto-update availability based on stock
-            if product.stock == 0:
-                product.is_available = False
-                product.save()
-            elif product.stock > 0 and not product.is_available:
-                product.is_available = True
-                product.save()
-            
-            return Response(serializer.data)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()
+        except ProtectedError:
+            raise ValidationError({'detail': 'This product belongs to an order. Hide it instead to preserve order history.'})

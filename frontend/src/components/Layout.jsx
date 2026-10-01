@@ -2,13 +2,27 @@ import { Outlet, Link, useNavigate } from 'react-router-dom'
 import useCartStore from '../store/cartStore'
 import useAuthStore from '../store/authStore'
 import useWishlistStore from '../store/wishlistStore'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import StoreAnnouncements from './StoreAnnouncements'
+import SocialLinks from './SocialLinks'
+import { productsAPI } from '../lib/api'
 
 export default function Layout() {
   const navigate = useNavigate()
   const itemCount = useCartStore(state => state.getItemCount())
   const { isAuthenticated, user, logout } = useAuthStore()
   const { items: wishlistItems, fetchWishlist } = useWishlistStore()
+  const [settings, setSettings] = useState(null)
+  const [settingsError, setSettingsError] = useState(false)
+  const [settingsRetry, setSettingsRetry] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    setSettingsError(false)
+    productsAPI.getSettings().then(({ data }) => { if (active) setSettings(data) })
+      .catch(() => { if (active) setSettingsError(true) })
+    return () => { active = false }
+  }, [settingsRetry])
   
   useEffect(() => {
     if (isAuthenticated) {
@@ -46,6 +60,8 @@ export default function Layout() {
             <nav className="hidden md:flex items-center space-x-8">
               <Link to="/" className="text-cream/80 hover:text-accent-400 transition-colors font-medium">Home</Link>
               <Link to="/products" className="text-cream/80 hover:text-accent-400 transition-colors font-medium">Shop</Link>
+              <Link to="/track-order" className="text-cream/80 hover:text-accent-400 transition-colors font-medium">Track order</Link>
+              {user?.is_staff && <Link to="/admin/dashboard" className="text-accent-300">Manage store</Link>}
               {isAuthenticated && (
                 <Link to="/my-orders" className="text-cream/80 hover:text-accent-400 transition-colors font-medium">My Orders</Link>
               )}
@@ -76,7 +92,7 @@ export default function Layout() {
               )}
               
               {isAuthenticated && (
-                <Link to="/wishlist" className="relative group">
+                <Link to="/wishlist" aria-label="Wishlist" className="relative group">
                   <svg 
                     className="w-6 h-6 text-cream group-hover:text-accent-400 transition-colors" 
                     fill="none" 
@@ -93,7 +109,7 @@ export default function Layout() {
                 </Link>
               )}
               
-              <Link to="/cart" className="relative group">
+              <Link to="/cart" data-cart-target aria-label={`Cart, ${itemCount} items`} className="relative group">
                 <svg className="w-6 h-6 text-cream group-hover:text-accent-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                 </svg>
@@ -107,6 +123,13 @@ export default function Layout() {
           </div>
         </div>
       </header>
+      <nav aria-label="Mobile navigation" className="md:hidden bg-dark text-cream flex flex-wrap gap-5 px-4 pb-4 text-sm">
+        <Link to="/products">Shop</Link>
+        <Link to="/track-order">Track order</Link>
+        {isAuthenticated && <Link to="/my-orders">My orders</Link>}
+        {user?.is_staff && <Link to="/admin/dashboard">Manage store</Link>}
+      </nav>
+      <StoreAnnouncements settings={settings} settingsError={settingsError} />
       
       <main className="flex-grow">
         <Outlet />
@@ -120,6 +143,7 @@ export default function Layout() {
               <p className="text-cream/70 text-sm leading-relaxed">
                 Premium handcrafted scrunchies for the modern woman. Elegant, comfortable, and stylish.
               </p>
+              <SocialLinks settings={settings} error={settingsError} loading={!settings && !settingsError} onRetry={() => setSettingsRetry(value => value + 1)} />
             </div>
             
             <div>
@@ -127,6 +151,8 @@ export default function Layout() {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/products" className="text-cream/70 hover:text-accent-400 transition-colors">Shop</Link></li>
                 <li><Link to="/my-orders" className="text-cream/70 hover:text-accent-400 transition-colors">My Orders</Link></li>
+                <li><Link to="/track-order" className="text-cream/70 hover:text-accent-400 transition-colors">Track an order</Link></li>
+                <li><Link to="/admin/login" className="text-cream/70 hover:text-accent-400 transition-colors">Owner sign in</Link></li>
                 {!isAuthenticated && (
                   <li><Link to="/register" className="text-cream/70 hover:text-accent-400 transition-colors">Register</Link></li>
                 )}

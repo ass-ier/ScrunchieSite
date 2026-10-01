@@ -1,6 +1,2 @@
-Django==5.0.1
-djangorestframework==3.14.0
-djangorestframework-simplejwt==5.3.1
-django-cors-headers==4.3.1
-python-decouple==3.8
-psycopg2-binary==2.9.9
+# The application needs the full runtime even when using SQLite.
+-r requirements.txt

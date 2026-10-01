@@ -65,5 +65,5 @@ class PasswordResetSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'phone', 'first_name', 'last_name', 'email', 'is_phone_verified', 'date_joined']
-        read_only_fields = ['id', 'is_phone_verified', 'date_joined']
+        fields = ['id', 'phone', 'first_name', 'last_name', 'email', 'is_staff', 'is_phone_verified', 'date_joined']
+        read_only_fields = ['id', 'phone', 'is_staff', 'is_phone_verified', 'date_joined']

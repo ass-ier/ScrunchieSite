@@ -1,0 +1,14 @@
+[
+  {"slug":"demo-satin-lilac","name":"The Satin Cloud","style":"satin","category":"Satin","color":"Lilac","color_hex":"#b29aca","price":"180.00"},
+  {"slug":"demo-satin-moss","name":"The Satin Cloud","style":"satin","category":"Satin","color":"Moss","color_hex":"#6a8360","price":"180.00"},
+  {"slug":"demo-satin-butter","name":"The Satin Cloud","style":"satin","category":"Satin","color":"Butter","color_hex":"#dfc36f","price":"180.00"},
+  {"slug":"demo-organza-rose","name":"The Airy Ruffle","style":"organza","category":"Organza","color":"Rose","color_hex":"#d69caa","price":"220.00"},
+  {"slug":"demo-organza-sky","name":"The Airy Ruffle","style":"organza","category":"Organza","color":"Sky","color_hex":"#86adc8","price":"220.00"},
+  {"slug":"demo-organza-pearl","name":"The Airy Ruffle","style":"organza","category":"Organza","color":"Pearl","color_hex":"#ded7ca","price":"220.00"},
+  {"slug":"demo-velvet-cinnamon","name":"The Velvet Crush","style":"velvet","category":"Velvet","color":"Cinnamon","color_hex":"#ab6550","price":"200.00"},
+  {"slug":"demo-velvet-berry","name":"The Velvet Crush","style":"velvet","category":"Velvet","color":"Berry","color_hex":"#8d3e63","price":"200.00"},
+  {"slug":"demo-velvet-midnight","name":"The Velvet Crush","style":"velvet","category":"Velvet","color":"Midnight","color_hex":"#354a65","price":"200.00"},
+  {"slug":"demo-linen-oat","name":"The Everyday Loop","style":"linen","category":"Linen","color":"Oat","color_hex":"#bfaa88","price":"160.00"},
+  {"slug":"demo-linen-olive","name":"The Everyday Loop","style":"linen","category":"Linen","color":"Olive","color_hex":"#939361","price":"160.00"},
+  {"slug":"demo-linen-cocoa","name":"The Everyday Loop","style":"linen","category":"Linen","color":"Cocoa","color_hex":"#805f50","price":"160.00"}
+]

@@ -1,0 +1,32 @@
+{
+  "license": "Unsplash License",
+  "license_url": "https://unsplash.com/license",
+  "retrieved": "2026-09-30",
+  "usage": "Styling inspiration only. These photographs do not depict AKEYA products or imply model endorsement.",
+  "photos": [
+    {
+      "file": "ponytail.webp",
+      "small_file": "ponytail-small.webp",
+      "photographer": "Daniel S",
+      "source": "https://unsplash.com/photos/a-woman-with-a-ponytail-in-her-hair-6eM7dR423Lw",
+      "unsplash_id": "6eM7dR423Lw",
+      "modifications": "Resized and converted to WebP. Cropped in the layout."
+    },
+    {
+      "file": "bun.webp",
+      "small_file": "bun-small.webp",
+      "photographer": "Andrey K",
+      "source": "https://unsplash.com/photos/person-with-auburn-hair-and-blossoms-kcHD5m2T9UA",
+      "unsplash_id": "kcHD5m2T9UA",
+      "modifications": "Resized and converted to WebP. Cropped in the layout."
+    },
+    {
+      "file": "wrist.webp",
+      "small_file": "wrist-small.webp",
+      "photographer": "Sincerely Media",
+      "source": "https://unsplash.com/photos/person-wearing-gold-and-diamond-ring-Vq9v1bUmsfQ",
+      "unsplash_id": "Vq9v1bUmsfQ",
+      "modifications": "Resized and converted to WebP. Cropped in the layout."
+    }
+  ]
+}

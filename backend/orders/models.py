@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from products.models import Product
+import uuid
+from .storage import ReceiptStorage, receipt_path
 
 User = get_user_model()
 
@@ -22,7 +24,7 @@ class Order(models.Model):
         ('rejected', 'Rejected'),
     ]
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     order_id = models.CharField(max_length=50, unique=True, editable=False)
     full_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=20)
@@ -33,7 +35,10 @@ class Order(models.Model):
     delivery_notes = models.TextField(blank=True, null=True)
     payment_method = models.CharField(max_length=10, choices=PAYMENT_CHOICES)
     transaction_reference = models.CharField(max_length=200)
-    receipt_url = models.ImageField(upload_to='receipts/')
+    receipt_url = models.ImageField(upload_to=receipt_path, storage=ReceiptStorage())
+    checkout_key = models.UUIDField(unique=True, null=True, editable=False)
+    tracking_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    payment_reference_key = models.CharField(max_length=220, unique=True, null=True, editable=False)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     admin_note = models.TextField(blank=True, null=True)
     
@@ -42,21 +47,17 @@ class Order(models.Model):
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    fulfillment_status = models.CharField(max_length=12, default='processing', choices=[
+        ('processing', 'Processing'), ('ready', 'Ready'), ('completed', 'Completed')
+    ])
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
         if not self.order_id:
-            from datetime import datetime
-            year = datetime.now().year
-            last_order = Order.objects.filter(order_id__startswith=f'ORD-{year}').order_by('-id').first()
-            if last_order:
-                last_num = int(last_order.order_id.split('-')[-1])
-                new_num = last_num + 1
-            else:
-                new_num = 1
-            self.order_id = f'ORD-{year}-{new_num:04d}'
+            self.order_id = f'ORD-{uuid.uuid4().hex.upper()}'
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -64,7 +65,10 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    product_name = models.CharField(max_length=200, blank=True)
+    size = models.CharField(max_length=1, blank=True)
+    color = models.CharField(max_length=50, blank=True)
     quantity = models.IntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     
@@ -82,3 +86,15 @@ class AuditLog(models.Model):
     
     def __str__(self):
         return f'{self.order.order_id} - {self.action}'
+
+
+class OrderEmail(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='emails')
+    kind = models.CharField(max_length=10, choices=[('received', 'Received'), ('decision', 'Decision')])
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['order', 'kind'], name='one_order_email_per_kind')]

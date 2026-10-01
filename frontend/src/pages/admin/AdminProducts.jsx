@@ -1,352 +1,153 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { productsAPI } from '../../lib/api'
+import { useEffect, useState } from 'react'
+import { productsAPI, apiError } from '../../lib/api'
+import AdminLayout from '../../components/AdminLayout'
 import toast from 'react-hot-toast'
 
+const emptyProduct = () => ({
+  name: '', description: '', price: '', category_id: '', stock: '0', color: '', color_hex: '#b4a0d2', style: '',
+  is_available: true, is_featured: false, image: null, gallery: [], removed: [],
+  sizes: ['S', 'M', 'L'].map(size => ({ size, enabled: false, stock: 0 })),
+})
+
 export default function AdminProducts() {
-  const navigate = useNavigate()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [editingProduct, setEditingProduct] = useState(null)
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category: '',
-    stock: '',
-    image: null,
-    is_available: true
-  })
-  const [imagePreview, setImagePreview] = useState(null)
-  
+  const [error, setError] = useState('')
+  const [editor, setEditor] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState(emptyProduct)
+  const [saving, setSaving] = useState(false)
+  const [categoryName, setCategoryName] = useState('')
+  const [search, setSearch] = useState('')
+  const [preview, setPreview] = useState('')
+  const hasSizes = form.sizes.some(size => size.enabled)
+  const slugify = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 45)
+
+  const load = async () => {
+    setError('')
+    try {
+      const [productRes, categoryRes] = await Promise.all([productsAPI.getAll(), productsAPI.getCategories()])
+      setProducts(productRes.data)
+      setCategories(categoryRes.data)
+    } catch (error) { setError(apiError(error, 'Unable to load products. Please retry.')) }
+    finally { setLoading(false) }
+  }
+  useEffect(() => { load() }, [])
   useEffect(() => {
-    loadData()
-  }, [])
-  
-  const loadData = async () => {
-    try {
-      const [productsRes, categoriesRes] = await Promise.all([
-        productsAPI.getAll(),
-        productsAPI.getCategories()
-      ])
-      setProducts(productsRes.data.results || productsRes.data)
-      setCategories(categoriesRes.data)
-      setLoading(false)
-    } catch (error) {
-      if (error.response?.status === 401) {
-        toast.error('Session expired')
-        navigate('/admin/login')
-      } else {
-        toast.error('Failed to load products')
-      }
-    }
+    if (!form.image) { setPreview(editing?.image || ''); return }
+    const url = URL.createObjectURL(form.image)
+    setPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [form.image, editing])
+
+  const edit = (product) => {
+    setEditing(product)
+    setForm(product ? {
+      ...emptyProduct(), ...product, category_id: product.category.id, image: null, gallery: [], removed: [],
+      sizes: ['S', 'M', 'L'].map(size => ({ size, enabled: product.sizes.some(s => s.size === size), stock: product.sizes.find(s => s.size === size)?.stock || 0 })),
+    } : emptyProduct())
+    setError('')
+    setEditor(true)
   }
-  
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    navigate('/admin/login')
-  }
-  
-  const handleImageChange = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size must be less than 5MB')
-        return
-      }
-      setFormData({ ...formData, image: file })
-      setImagePreview(URL.createObjectURL(file))
-    }
-  }
-  
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    
+  const change = (event) => setForm(prev => ({ ...prev, [event.target.name]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }))
+
+  const save = async (event) => {
+    event.preventDefault()
+    setSaving(true)
+    setError('')
     const data = new FormData()
-    data.append('name', formData.name)
-    data.append('description', formData.description)
-    data.append('price', formData.price)
-    data.append('category', formData.category)
-    data.append('stock', formData.stock)
-    data.append('is_available', formData.is_available)
-    
-    if (formData.image instanceof File) {
-      data.append('image', formData.image)
-    }
-    
-    // Generate slug from name
-    const slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-    data.append('slug', slug)
-    
+    for (const key of ['name', 'description', 'price', 'category_id', 'color', 'color_hex', 'style', 'is_available', 'is_featured']) data.append(key, form[key])
+    data.append('stock', hasSizes ? form.sizes.filter(s => s.enabled).reduce((total, size) => total + Number(size.stock), 0) : form.stock)
+    data.append('sizes_data', JSON.stringify(form.sizes.filter(size => size.enabled).map(({ size, stock }) => ({ size, stock: Number(stock) }))))
+    data.append('remove_image_ids', JSON.stringify(form.removed))
+    data.append('slug', editing?.slug || `${slugify(form.name) || 'product'}-${crypto.randomUUID().slice(0, 4)}`)
+    if (form.image) data.append('image', form.image)
+    form.gallery.forEach(file => data.append('gallery_images', file))
     try {
-      if (editingProduct) {
-        await productsAPI.update(editingProduct.slug, data)
-        toast.success('Product updated successfully')
-      } else {
-        await productsAPI.create(data)
-        toast.success('Product created successfully')
-      }
-      
-      setShowModal(false)
-      resetForm()
-      loadData()
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save product')
-    }
+      if (editing) await productsAPI.update(editing.slug, data)
+      else await productsAPI.create(data)
+      toast.success(editing ? 'Product updated' : 'Product added')
+      setEditor(false)
+      await load()
+    } catch (error) { setError(apiError(error, 'Unable to save product. Check the fields and retry.')) }
+    finally { setSaving(false) }
   }
-  
-  const handleEdit = (product) => {
-    setEditingProduct(product)
-    setFormData({
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      category: product.category.id,
-      stock: product.stock,
-      image: null,
-      is_available: product.is_available
-    })
-    setImagePreview(product.image)
-    setShowModal(true)
-  }
-  
-  const handleDelete = async (slug) => {
-    if (!confirm('Are you sure you want to delete this product?')) return
-    
+  const addCategory = async () => {
+    if (!categoryName.trim()) return
+    setSaving(true)
     try {
-      await productsAPI.delete(slug)
-      toast.success('Product deleted')
-      loadData()
-    } catch (error) {
-      toast.error('Failed to delete product')
-    }
+      const { data } = await productsAPI.createCategory({ name: categoryName, slug: slugify(categoryName) || `category-${crypto.randomUUID().slice(0, 6)}` })
+      setCategories(prev => [...prev, data])
+      setForm(prev => ({ ...prev, category_id: data.id }))
+      setCategoryName('')
+      toast.success('Category added')
+    } catch (error) { setError(apiError(error, 'Unable to add category.')) }
+    finally { setSaving(false) }
   }
-  
-  const resetForm = () => {
-    setEditingProduct(null)
-    setFormData({
-      name: '',
-      description: '',
-      price: '',
-      category: '',
-      stock: '',
-      image: null,
-      is_available: true
-    })
-    setImagePreview(null)
+  const remove = async (product) => {
+    if (!window.confirm(`Delete "${product.name}"? Products used in orders must be hidden instead.`)) return
+    try { await productsAPI.delete(product.slug); await load(); toast.success('Product deleted') }
+    catch (error) { setError(apiError(error, 'Unable to delete this product.')) }
   }
-  
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
-  }
-  
+
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Header */}
-      <header className="bg-dark text-cream py-4 shadow-lg">
-        <div className="container mx-auto px-4 flex items-center justify-between">
-          <h1 className="font-display text-2xl font-bold text-accent-400">Product Management</h1>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => navigate('/admin/dashboard')}
-              className="text-sm text-cream/80 hover:text-accent-400"
-            >
-              Dashboard
-            </button>
-            <button onClick={handleLogout} className="btn-secondary text-sm">
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="font-display text-3xl font-bold text-dark">Products</h2>
-          <button
-            onClick={() => {
-              resetForm()
-              setShowModal(true)
-            }}
-            className="btn-primary"
-          >
-            + Add Product
-          </button>
-        </div>
-        
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {products.map(product => (
-            <div key={product.id} className="card group">
-              <div className="aspect-square overflow-hidden">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                />
-              </div>
-              <div className="p-4">
-                <h3 className="font-display text-lg font-semibold mb-1 text-dark">{product.name}</h3>
-                <p className="text-accent-600 font-bold text-xl mb-2">{product.price} ETB</p>
-                <div className="flex items-center justify-between text-sm mb-3">
-                  <span className={`px-2 py-1 rounded ${product.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    Stock: {product.stock}
-                  </span>
-                  <span className={`px-2 py-1 rounded ${product.is_available ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                    {product.is_available ? 'Available' : 'Unavailable'}
-                  </span>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleEdit(product)}
-                    className="flex-1 bg-accent-400 text-dark px-3 py-2 rounded hover:bg-accent-500 text-sm font-medium"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(product.slug)}
-                    className="flex-1 bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 text-sm font-medium"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+    <AdminLayout title={editor ? (editing ? 'Edit product' : 'Add a product') : 'Products'}>
+      {error && <div role="alert" className="error-message mb-5">{error}{!editor && <button className="underline ml-3" onClick={load}>Retry</button>}</div>}
+      {editor ? <form onSubmit={save} className="max-w-4xl space-y-6">
+        <div className="grid md:grid-cols-2 gap-6">
+          <section className="panel space-y-4">
+            <h2 className="text-2xl">Product details</h2>
+            <label className="field-label">Product name<input name="name" required maxLength={200} value={form.name} onChange={change} className="input-field" /></label>
+            <label className="field-label">Description<textarea name="description" required value={form.description} onChange={change} rows={4} className="input-field" /></label>
+            <label className="field-label">Price (ETB)<input name="price" type="number" min="0.01" max="99999999.99" step="0.01" required value={form.price} onChange={change} className="input-field" /></label>
+            <label className="field-label">Color<input name="color" maxLength={50} value={form.color} onChange={change} placeholder="e.g. Sage green" className="input-field" /></label>
+            <label className="field-label">Color swatch<input name="color_hex" type="color" value={form.color_hex || '#b4a0d2'} onChange={change} className="input-field h-14" /></label>
+            <label className="field-label">Style group (optional)<input name="style" maxLength={50} value={form.style} onChange={change} placeholder="e.g. satin-cloud" className="input-field" /></label>
+            <p className="text-sm text-primary-700">Give the same style group to different colors of one design. Shoppers can then switch between their actual photos, sizes and stock.</p>
+            <p className="text-sm text-primary-700">Add each color as its own product so photos and stock stay accurate.</p>
+            <label className="field-label">Category<select name="category_id" required value={form.category_id} onChange={change} className="input-field"><option value="">Choose a category</option>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+            <div className="border-t pt-4">
+              <label className="field-label">New category (optional)<input maxLength={100} value={categoryName} onChange={event => setCategoryName(event.target.value)} className="input-field" /></label>
+              <button type="button" disabled={saving || !categoryName.trim()} onClick={addCategory} className="underline text-sm mt-3">Add category</button>
             </div>
-          ))}
+          </section>
+          <section className="panel space-y-4">
+            <h2 className="text-2xl">Stock &amp; visibility</h2>
+            <p className="text-sm text-primary-700">Stock is the quantity available for new orders. Pending orders already reserve their items.</p>
+            <fieldset><legend className="text-sm font-semibold mb-3">Available sizes</legend>
+              {form.sizes.map((size, index) => <div key={size.size} className="flex gap-4 items-center mb-3">
+                <label className="flex gap-2 items-center w-24"><input type="checkbox" checked={size.enabled} onChange={event => setForm(prev => ({ ...prev, sizes: prev.sizes.map((s, i) => i === index ? { ...s, enabled: event.target.checked } : s) }))} />{size.size === 'S' ? 'Small' : size.size === 'M' ? 'Medium' : 'Large'}</label>
+                <label className="flex-1"><span className="sr-only">Stock for size {size.size}</span><input type="number" min="0" max="1000000" required={size.enabled} disabled={!size.enabled} value={size.stock} onChange={event => setForm(prev => ({ ...prev, sizes: prev.sizes.map((s, i) => i === index ? { ...s, stock: event.target.value } : s) }))} className="input-field" /></label>
+              </div>)}
+            </fieldset>
+            {hasSizes ? <p className="text-sm font-semibold">Total available: {form.sizes.filter(s => s.enabled).reduce((total, size) => total + Number(size.stock), 0)}</p>
+              : <label className="field-label">Stock (one size)<input name="stock" type="number" min="0" max="1000000" required value={form.stock} onChange={change} className="input-field" /></label>}
+            <label className="flex gap-3 items-start py-2"><input name="is_available" type="checkbox" checked={form.is_available} onChange={change} className="mt-1" /><span>Visible in the shop<span className="block text-sm text-primary-700">Uncheck to hide without deleting order history.</span></span></label>
+            <label className="flex gap-3 items-start py-2"><input name="is_featured" type="checkbox" checked={form.is_featured} onChange={change} className="mt-1" /><span>Featured on the home page</span></label>
+          </section>
         </div>
-      </div>
-      
-      {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-cream rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display text-2xl font-bold text-dark">
-                {editingProduct ? 'Edit Product' : 'Add Product'}
-              </h2>
-              <button
-                onClick={() => {
-                  setShowModal(false)
-                  resetForm()
-                }}
-                className="text-primary-500 hover:text-primary-700"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-dark">Product Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  className="input-field"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2 text-dark">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  required
-                  rows={3}
-                  className="input-field"
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-dark">Price (ETB)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    required
-                    className="input-field"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-dark">Stock</label>
-                  <input
-                    type="number"
-                    value={formData.stock}
-                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                    required
-                    className="input-field"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2 text-dark">Category</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  required
-                  className="input-field"
-                >
-                  <option value="">Select category</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2 text-dark">Product Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="input-field"
-                />
-                {imagePreview && (
-                  <img src={imagePreview} alt="Preview" className="mt-4 max-w-xs rounded-lg" />
-                )}
-              </div>
-              
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="is_available"
-                  checked={formData.is_available}
-                  onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })}
-                  className="w-4 h-4 text-accent-500 rounded"
-                />
-                <label htmlFor="is_available" className="ml-2 text-sm text-dark">
-                  Product is available for sale
-                </label>
-              </div>
-              
-              <div className="flex space-x-4 pt-4">
-                <button type="submit" className="btn-primary flex-1">
-                  {editingProduct ? 'Update Product' : 'Add Product'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false)
-                    resetForm()
-                  }}
-                  className="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+        <section className="panel space-y-4">
+          <h2 className="text-2xl">Photography</h2>
+          <label className="field-label">Main product image{editing && ' (leave empty to keep current image)'}<input type="file" accept="image/jpeg,image/png,image/webp" required={!editing} onChange={event => setForm(prev => ({ ...prev, image: event.target.files?.[0] || null }))} className="input-field" /></label>
+          {preview && <img src={preview} alt="Product preview" className="h-40 w-40 object-cover rounded-lg" />}
+          <label className="field-label">Additional gallery images (up to 8 per upload)<input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={event => setForm(prev => ({ ...prev, gallery: Array.from(event.target.files || []) }))} className="input-field" /></label>
+          <p className="text-sm text-primary-700">JPEG, PNG or WebP. Maximum 5 MB per image.</p>
+          {editing?.images?.length > 0 && <div className="flex flex-wrap gap-4">{editing.images.map(image => <label key={image.id} className="text-sm"><img src={image.image} alt={image.alt_text || editing.name} className="h-24 w-24 object-cover mb-2 rounded" /><input type="checkbox" checked={form.removed.includes(image.id)} onChange={event => setForm(prev => ({ ...prev, removed: event.target.checked ? [...prev.removed, image.id] : prev.removed.filter(id => id !== image.id) }))} /> Remove image</label>)}</div>}
+        </section>
+        <div className="flex gap-3"><button disabled={saving} className="btn-primary">{saving ? 'Saving...' : 'Save product'}</button><button type="button" disabled={saving} onClick={() => setEditor(false)} className="btn-secondary">Cancel</button></div>
+      </form> : <>
+        <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6"><label className="sm:w-80"><span className="sr-only">Search products</span><input className="input-field" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search products..." /></label><button onClick={() => edit(null)} className="btn-primary">Add product</button></div>
+        {loading ? <p role="status">Loading products...</p> : <div className="bg-white border border-primary-200 rounded-xl divide-y">
+          {products.filter(product => product.name.toLowerCase().includes(search.toLowerCase())).map(product => <article key={product.id} className="p-4 sm:p-5 flex flex-wrap items-center gap-4">
+            <img src={product.image} alt={product.name} className="w-20 h-20 object-cover rounded-lg" />
+            <div className="flex-1 min-w-40"><h2 className="text-xl">{product.name}</h2><p className="text-sm text-primary-700">{product.category.name} · {product.color || 'No color specified'}</p><p className="text-sm">{product.price} ETB · {product.stock} available{product.is_featured ? ' · Featured' : ''}{!product.is_available ? ' · Hidden' : ''}</p></div>
+            <button className="btn-secondary" onClick={() => edit(product)}>Edit</button><button className="text-sm underline text-red-800 p-2" onClick={() => remove(product)}>Delete</button>
+          </article>)}
+          {!products.length && <p className="p-8 text-primary-700">Your shop is empty. Add a category and your first product to get started.</p>}
+          {products.length > 0 && !products.some(product => product.name.toLowerCase().includes(search.toLowerCase())) && <p className="p-8">No products match your search.</p>}
+        </div>}
+      </>}
+    </AdminLayout>
   )
 }

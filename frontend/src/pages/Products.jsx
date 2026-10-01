@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { productsAPI } from '../lib/api'
+import { productsAPI, apiError } from '../lib/api'
 import useWishlistStore from '../store/wishlistStore'
 import useAuthStore from '../store/authStore'
 import toast from 'react-hot-toast'
 import Breadcrumbs from '../components/Breadcrumbs'
+import ProductCard from '../components/ProductCard'
 
 export default function Products() {
   const [products, setProducts] = useState([])
@@ -13,247 +13,53 @@ export default function Products() {
   const [selectedSize, setSelectedSize] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
-  
+  const [error, setError] = useState('')
+  const [retry, setRetry] = useState(0)
   const { isAuthenticated } = useAuthStore()
-  const { items: wishlistItems, addToWishlist, removeFromWishlist, isInWishlist, getWishlistItemId, fetchWishlist } = useWishlistStore()
-  
-  const sizes = ['S', 'M', 'L']
-  
+  const { addToWishlist, removeFromWishlist, isInWishlist, getWishlistItemId, fetchWishlist } = useWishlistStore()
+  useEffect(() => { if (isAuthenticated) fetchWishlist() }, [isAuthenticated, fetchWishlist])
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchWishlist()
-    }
-  }, [isAuthenticated, fetchWishlist])
-  
+    let active = true
+    productsAPI.getCategories().then(({ data }) => { if (active) setCategories(data) })
+      .catch(error => { if (active) setError(apiError(error, 'Categories could not be loaded. Please retry.')) })
+    return () => { active = false }
+  }, [retry])
   useEffect(() => {
-    Promise.all([
-      productsAPI.getCategories()
-    ]).then(([categoriesRes]) => {
-      setCategories(categoriesRes.data)
-    })
-  }, [])
-  
-  useEffect(() => {
-    const params = {}
-    if (selectedCategory) params.category = selectedCategory
-    if (selectedSize) params.size = selectedSize
-    if (searchQuery) params.search = searchQuery
-    
-    // Debounce search to avoid too many API calls
-    const timeoutId = setTimeout(() => {
-      setLoading(true)
-      productsAPI.getAll(params).then(res => {
-        setProducts(res.data.results || res.data)
-        setLoading(false)
-      }).catch(err => {
-        console.error('Failed to fetch products:', err)
-        setLoading(false)
-      })
-    }, 300)
-    
-    return () => clearTimeout(timeoutId)
-  }, [selectedCategory, selectedSize, searchQuery])
-  
-  const handleSearch = (e) => {
-    e.preventDefault()
-    // Search is already handled by useEffect watching searchQuery
+    let active = true
+    const timeout = setTimeout(() => {
+      setLoading(true); setError('')
+      productsAPI.getAll({ category: selectedCategory || undefined, size: selectedSize || undefined, search: searchQuery || undefined })
+        .then(({ data }) => { if (active) setProducts(data.results || data) })
+        .catch(error => { if (active) setError(apiError(error, 'The collection could not be loaded. Please retry.')) })
+        .finally(() => { if (active) setLoading(false) })
+    }, 200)
+    return () => { active = false; clearTimeout(timeout) }
+  }, [selectedCategory, selectedSize, searchQuery, retry])
+  const toggleWishlist = async product => {
+    const removing = isInWishlist(product.id)
+    const success = removing ? await removeFromWishlist(getWishlistItemId(product.id)) : await addToWishlist(product)
+    if (success) toast.success(removing ? 'Removed from wishlist' : 'Saved to your wishlist')
   }
-  
-  const handleWishlistToggle = async (e, product) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    if (!isAuthenticated) {
-      toast.error('Please login to add to wishlist')
-      return
-    }
-    
-    if (isInWishlist(product.id)) {
-      const itemId = getWishlistItemId(product.id)
-      const success = await removeFromWishlist(itemId)
-      if (success) {
-        toast.success('Removed from wishlist')
-      }
-    } else {
-      const success = await addToWishlist(product)
-      if (success) {
-        toast.success('Added to wishlist')
-      }
-    }
-  }
-  
-  return (
-    <div>
-      <Breadcrumbs />
-      <div className="container mx-auto px-4 py-12">
-      <h1 className="font-display text-5xl font-bold text-center mb-12">Our Products</h1>
-      
-      {/* Search and Filters */}
-      <div className="mb-8 space-y-4">
-        {/* Search Bar */}
-        <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products by name, color..."
-              className="w-full px-4 py-3 pr-12 rounded-lg border border-primary-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <button
-              type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-primary-600 hover:text-primary-800"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-          </div>
-        </form>
-        
-        {/* Filters */}
-        <div className="flex flex-wrap justify-center gap-4">
-          {/* Category Filter */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedCategory('')}
-              className={`px-4 py-2 rounded-full transition-all ${
-                selectedCategory === '' 
-                  ? 'bg-primary-700 text-white' 
-                  : 'bg-white text-primary-700 hover:bg-primary-50 border border-primary-200'
-              }`}
-            >
-              All Categories
-            </button>
-            {categories.map(category => (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.slug)}
-                className={`px-4 py-2 rounded-full transition-all ${
-                  selectedCategory === category.slug 
-                    ? 'bg-primary-700 text-white' 
-                    : 'bg-white text-primary-700 hover:bg-primary-50 border border-primary-200'
-                }`}
-              >
-                {category.name}
-              </button>
-            ))}
-          </div>
-          
-          {/* Size Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-primary-700">Size:</span>
-            <button
-              onClick={() => setSelectedSize('')}
-              className={`px-3 py-1 rounded-full text-sm transition-all ${
-                selectedSize === '' 
-                  ? 'bg-primary-700 text-white' 
-                  : 'bg-white text-primary-700 hover:bg-primary-50 border border-primary-200'
-              }`}
-            >
-              All
-            </button>
-            {sizes.map(size => (
-              <button
-                key={size}
-                onClick={() => setSelectedSize(size)}
-                className={`px-3 py-1 rounded-full text-sm transition-all ${
-                  selectedSize === size 
-                    ? 'bg-primary-700 text-white' 
-                    : 'bg-white text-primary-700 hover:bg-primary-50 border border-primary-200'
-                }`}
-              >
-                {size}
-              </button>
-            ))}
-          </div>
+  return <div>
+    <Breadcrumbs />
+    <div className="shop-collection">
+      <div className="shop-collection-heading"><h1>Find your<br /><em>kind of lovely.</em></h1><p>A color for every mood.<br />A little loop for every day.</p></div>
+      <div className="shop-filter-bar">
+        <div className="filter-chips" role="group" aria-label="Filter by collection">
+          <button aria-pressed={!selectedCategory} onClick={() => setSelectedCategory('')}>All scrunchies</button>
+          {categories.map(category => <button key={category.id} aria-pressed={selectedCategory === category.slug} onClick={() => setSelectedCategory(category.slug)}>{category.name}</button>)}
+        </div>
+        <div className="shop-filter-inputs">
+          <label><span className="sr-only">Search collection</span><input type="search" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Find a color or a favorite..." className="input-field" /></label>
+          <label className="flex items-center gap-2 text-sm">Size<select value={selectedSize} onChange={event => setSelectedSize(event.target.value)} className="input-field"><option value="">All</option>{['S', 'M', 'L'].map(size => <option key={size}>{size}</option>)}</select></label>
         </div>
       </div>
-      
-      {/* Products Grid */}
-      {loading && products.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-500 mx-auto mb-4"></div>
-          <p className="text-primary-600">Loading products...</p>
-        </div>
-      ) : products.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-xl text-primary-600">No products found matching your criteria.</p>
-        </div>
-      ) : (
-        <div className="relative">
-          {loading && (
-            <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-500"></div>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {products.map(product => (
-            <Link key={product.id} to={`/products/${product.slug}`} className="card group relative">
-              {/* Wishlist Button */}
-              {isAuthenticated && (
-                <button
-                  onClick={(e) => handleWishlistToggle(e, product)}
-                  className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/90 hover:bg-white shadow-md transition-all"
-                >
-                  <svg 
-                    className={`w-6 h-6 transition-colors ${
-                      isInWishlist(product.id) 
-                        ? 'fill-red-500 text-red-500' 
-                        : 'fill-none text-primary-600'
-                    }`}
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                </button>
-              )}
-              
-              <div className="aspect-square overflow-hidden">
-                <img 
-                  src={product.image} 
-                  alt={product.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-              </div>
-              <div className="p-6">
-                <h3 className="font-display text-xl font-semibold mb-2">{product.name}</h3>
-                {product.color && (
-                  <p className="text-sm text-primary-500 mb-2">Color: {product.color}</p>
-                )}
-                <p className="text-primary-600 mb-4 line-clamp-2">{product.description}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold text-accent-500">{product.price} ETB</span>
-                  {product.stock > 0 ? (
-                    <span className="text-sm text-green-600">In Stock</span>
-                  ) : (
-                    <span className="text-sm text-red-600">Out of Stock</span>
-                  )}
-                </div>
-                {product.sizes && product.sizes.length > 0 && (
-                  <div className="mt-3 flex gap-2">
-                    {product.sizes.map(size => (
-                      <span 
-                        key={size.size}
-                        className={`text-xs px-2 py-1 rounded ${
-                          size.stock > 0 
-                            ? 'bg-primary-100 text-primary-700' 
-                            : 'bg-gray-100 text-gray-400'
-                        }`}
-                      >
-                        {size.size}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
-        </div>
-      )}
+      {error && <p className="error-message mb-6" role="alert">{error} <button className="underline" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
+      <p className="collection-count" role="status">{loading ? 'Finding your favorites...' : `${products.length} little things to love`}</p>
+      <div className="editorial-product-grid" aria-busy={loading}>
+        {products.map((product, index) => <ProductCard key={product.id} product={product} index={index} wishlistControl={isAuthenticated && <button type="button" className="tile-wishlist" aria-pressed={isInWishlist(product.id)} aria-label={`${isInWishlist(product.id) ? 'Remove' : 'Save'} ${product.name} ${product.color} ${isInWishlist(product.id) ? 'from' : 'to'} wishlist`} onClick={() => toggleWishlist(product)}><span aria-hidden="true">{isInWishlist(product.id) ? '♥' : '♡'}</span></button>} />)}
+      </div>
+      {!loading && !error && !products.length && <div className="py-16 text-center"><h2 className="text-3xl mb-3">No matches this time.</h2><p className="mb-5 text-primary-700">Try another color, size or collection.</p><button className="btn-primary" onClick={() => { setSelectedCategory(''); setSelectedSize(''); setSearchQuery('') }}>Show all scrunchies</button></div>}
     </div>
-    </div>
-  )
+  </div>
 }

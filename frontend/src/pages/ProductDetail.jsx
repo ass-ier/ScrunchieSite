@@ -6,6 +6,7 @@ import useWishlistStore from '../store/wishlistStore'
 import useAuthStore from '../store/authStore'
 import toast from 'react-hot-toast'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { celebrateCart } from '../lib/cartMotion'
 
 export default function ProductDetail() {
   const { slug } = useParams()
@@ -16,6 +17,9 @@ export default function ProductDetail() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [reviews, setReviews] = useState([])
   const [reviewStats, setReviewStats] = useState(null)
+  const [error, setError] = useState('')
+  const [variantLoading, setVariantLoading] = useState(true)
+  const [added, setAdded] = useState(false)
   
   const addItem = useCartStore(state => state.addItem)
   const { isAuthenticated } = useAuthStore()
@@ -28,8 +32,17 @@ export default function ProductDetail() {
   }, [isAuthenticated, fetchWishlist])
   
   useEffect(() => {
+    let active = true
+    setError('')
+    setVariantLoading(true)
+    setAdded(false)
+    setQuantity(1)
+    setSelectedImageIndex(0)
     productsAPI.getBySlug(slug).then(res => {
+      if (!active) return
       setProduct(res.data)
+      setSelectedSize(null)
+      setVariantLoading(false)
       // Auto-select first available size if sizes exist
       if (res.data.sizes && res.data.sizes.length > 0) {
         const firstAvailable = res.data.sizes.find(s => s.stock > 0)
@@ -40,14 +53,15 @@ export default function ProductDetail() {
       
       // Fetch reviews
       reviewsAPI.getByProduct(res.data.id).then(reviewRes => {
-        setReviews(reviewRes.data)
+        if (active) setReviews(reviewRes.data)
       }).catch(err => console.error('Failed to fetch reviews:', err))
       
       // Fetch review stats
       reviewsAPI.getStats(res.data.id).then(statsRes => {
-        setReviewStats(statsRes.data)
+        if (active) setReviewStats(statsRes.data)
       }).catch(err => console.error('Failed to fetch review stats:', err))
-    })
+    }).catch(() => { if (active) { setError('This product is unavailable or could not be loaded. Return to the shop and try again.'); setVariantLoading(false) } })
+    return () => { active = false }
   }, [slug])
   
   const getSelectedSizeStock = () => {
@@ -66,8 +80,13 @@ export default function ProductDetail() {
       toast.error('Please select a size')
       return
     }
-    addItem(product, quantity, selectedSize)
+    if (!addItem(product, quantity, selectedSize)) {
+      toast.error('Your cart already contains the available quantity.')
+      return
+    }
     toast.success('Added to cart!')
+    celebrateCart(currentImage)
+    setAdded(true)
   }
   
   const handleBuyNow = () => {
@@ -75,7 +94,10 @@ export default function ProductDetail() {
       toast.error('Please select a size')
       return
     }
-    addItem(product, quantity, selectedSize)
+    if (!addItem(product, quantity, selectedSize)) {
+      toast.error('Your cart already contains the available quantity.')
+      return
+    }
     navigate('/cart')
   }
   
@@ -112,9 +134,14 @@ export default function ProductDetail() {
       : []
   
   const currentImage = allImages[selectedImageIndex] || product?.image
+  useEffect(() => {
+    if (!added) return
+    const timeout = setTimeout(() => setAdded(false), 2200)
+    return () => clearTimeout(timeout)
+  }, [added])
   
   if (!product) {
-    return <div className="container mx-auto px-4 py-16 text-center">Loading...</div>
+    return <div className="container mx-auto px-4 py-16 text-center">{error ? <p role="alert">{error} <a href="/products" className="underline">Back to shop</a></p> : <p role="status">Loading...</p>}</div>
   }
   
   const breadcrumbItems = [
@@ -127,15 +154,18 @@ export default function ProductDetail() {
     <div>
       <Breadcrumbs customItems={breadcrumbItems} />
       <div className="container mx-auto px-4 py-12">
+      {error && <p role="alert" className="error-message mb-6">{error}</p>}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Image Gallery */}
         <div>
           {/* Main Image */}
-          <div className="aspect-square rounded-2xl overflow-hidden mb-4 bg-gray-100">
+          <div className="product-detail-art aspect-square rounded-2xl overflow-hidden mb-4" style={{ '--product-color': product.color_hex || '#ddd6c8' }} aria-busy={variantLoading}>
             <img 
+              key={currentImage}
+              data-product-image
               src={currentImage} 
               alt={product.name}
-              className="w-full h-full object-cover"
+              className="variant-image w-full h-full object-cover"
             />
           </div>
           
@@ -212,7 +242,7 @@ export default function ProductDetail() {
               </button>
             )}
           </div>
-          <p className="text-3xl font-bold text-accent-500 mb-6">{product.price} ETB</p>
+          <p className="text-3xl font-bold text-primary-700 mb-6">{product.price} ETB</p>
           
           {product.color && (
             <div className="mb-4">
@@ -220,6 +250,10 @@ export default function ProductDetail() {
               <span className="text-primary-800 font-semibold">{product.color}</span>
             </div>
           )}
+          {product.color_options?.length > 1 && <div className="swatch-group mb-6" role="group" aria-label="Choose a product color">
+            {product.color_options.map(option => <button key={option.id} type="button" className="color-swatch" style={{ '--swatch': option.color_hex || '#ddd6c8' }} aria-label={`${option.color}${option.stock === 0 ? ' (sold out)' : ''}`} title={option.color} aria-pressed={product.id === option.id} disabled={variantLoading} onClick={() => navigate(`/products/${option.slug}`, { replace: true })} />)}
+          </div>}
+          {variantLoading && <p role="status" className="text-sm text-primary-600 mb-4">Choosing your color...</p>}
           
           <p className="text-primary-600 text-lg mb-8 leading-relaxed">
             {product.description}
@@ -286,10 +320,10 @@ export default function ProductDetail() {
               </div>
               
               <div className="flex space-x-4">
-                <button onClick={handleAddToCart} className="btn-primary flex-1">
-                  Add to Cart
+                <button onClick={handleAddToCart} disabled={variantLoading || !!error} className={`btn-primary flex-1 ${added ? 'cart-added' : ''}`}>
+                  {added ? 'Added to your bag ✓' : 'Add to Cart'}
                 </button>
-                <button onClick={handleBuyNow} className="btn-secondary flex-1">
+                <button onClick={handleBuyNow} disabled={variantLoading || !!error} className="btn-secondary flex-1">
                   Buy Now
                 </button>
               </div>

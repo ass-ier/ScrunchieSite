@@ -1,0 +1,2 @@
+# Optional local-only image preparation; not a backend/deployment dependency.
+rembg[cpu]==2.0.76

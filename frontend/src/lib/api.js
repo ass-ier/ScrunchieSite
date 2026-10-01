@@ -1,7 +1,8 @@
 import axios from 'axios'
+import useAuthStore from '../store/authStore'
 
 // Use environment variable for API URL
-const baseURL = import.meta.env.VITE_API_URL
+const baseURL = import.meta.env.VITE_API_URL || '/api'
 
 const api = axios.create({
   baseURL,
@@ -23,9 +24,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+      useAuthStore.getState().logout()
     }
     return Promise.reject(error)
   }
@@ -48,13 +47,18 @@ export const productsAPI = {
   create: (data) => api.post('/products/', data, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  update: (slug, data) => api.put(`/products/${slug}/`, data, {
+  update: (slug, data) => api.patch(`/products/${slug}/`, data, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   delete: (slug) => api.delete(`/products/${slug}/`),
+  createCategory: (data) => api.post('/products/categories/', data),
+  getSettings: () => api.get('/products/settings/'),
+  saveSettings: (data) => api.post('/products/settings/', data),
 }
 
 export const ordersAPI = {
+  quote: (data) => api.post('/orders/quote/', data),
+  track: (token) => api.post('/orders/track/', { token }),
   create: (data) => {
     const formData = new FormData()
     Object.keys(data).forEach(key => {
@@ -74,7 +78,9 @@ export const ordersAPI = {
   getAll: (params) => api.get('/orders/', { params }),
   verify: (id, note) => api.post(`/orders/${id}/verify/`, { note }),
   reject: (id, note) => api.post(`/orders/${id}/reject/`, { note }),
-  delete: (id) => api.delete(`/orders/${id}/`),
+  receipt: (id) => api.get(`/orders/${id}/receipt/`, { responseType: 'blob' }),
+  retryEmail: (id) => api.post(`/orders/${id}/retry_email/`),
+  fulfill: (id, status) => api.post(`/orders/${id}/fulfill/`, { status }),
   getStats: () => api.get('/orders/stats/'),
   getAuditLogs: (id) => api.get(`/orders/${id}/audit_logs/`),
 }
@@ -93,6 +99,23 @@ export const reviewsAPI = {
 
 export const couponsAPI = {
   validate: (code, amount) => api.post('/coupons/validate/', { code, amount }),
+  getAll: () => api.get('/coupons/'),
+  promotions: () => api.get('/coupons/promotions/'),
+  create: (data) => api.post('/coupons/', data),
+  update: (id, data) => api.patch(`/coupons/${id}/`, data),
+  delete: (id) => api.delete(`/coupons/${id}/`),
+}
+
+export function apiError(error, fallback = 'Something went wrong. Please try again.') {
+  const data = error.response?.data
+  if (!data || typeof data !== 'object' || data instanceof Blob) return fallback
+  const flatten = (value) => {
+    if (typeof value === 'string') return value
+    if (Array.isArray(value)) return value.map(flatten).filter(Boolean).join(' ')
+    if (value && typeof value === 'object') return Object.values(value).map(flatten).filter(Boolean).join(' ')
+    return ''
+  }
+  return flatten(data) || fallback
 }
 
 export default api

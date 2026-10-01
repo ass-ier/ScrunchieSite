@@ -14,10 +14,13 @@ class ReviewSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         user = self.context['request'].user
-        product = data.get('product')
+        product = data.get('product', self.instance.product if self.instance else None)
         
         # Check if user already reviewed this product
-        if Review.objects.filter(user=user, product=product).exists():
+        existing = Review.objects.filter(user=user, product=product)
+        if self.instance:
+            existing = existing.exclude(pk=self.instance.pk)
+        if existing.exists():
             raise serializers.ValidationError('You have already reviewed this product.')
         
         # Check if user has a verified order with this product

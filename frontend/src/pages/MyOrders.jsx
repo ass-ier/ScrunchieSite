@@ -67,7 +67,7 @@ export default function MyOrders() {
             <div key={order.id} className="card p-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                 <div>
-                  <h3 className="font-display text-xl font-semibold text-dark mb-1">
+                  <h3 className="font-display text-xl font-semibold text-dark mb-1 break-all">
                     Order {order.order_id}
                   </h3>
                   <p className="text-sm text-primary-600">
@@ -140,7 +140,7 @@ export default function MyOrders() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-primary-600">Order ID</p>
-                  <p className="font-semibold text-dark">{selectedOrder.order_id}</p>
+                  <p className="font-semibold text-dark break-all">{selectedOrder.order_id}</p>
                 </div>
                 <div>
                   <p className="text-primary-600">Status</p>
@@ -187,7 +187,7 @@ export default function MyOrders() {
                 <div className="space-y-2">
                   {selectedOrder.items.map(item => (
                     <div key={item.id} className="flex justify-between bg-primary-50 p-3 rounded-lg">
-                      <span className="text-dark">{item.product.name} x{item.quantity}</span>
+                      <span className="text-dark">{item.product_name || item.product.name}{item.size && ` (${item.size})`}{item.color && ` / ${item.color}`} x{item.quantity}</span>
                       <span className="font-semibold text-dark">{(item.price * item.quantity).toFixed(2)} ETB</span>
                     </div>
                   ))}

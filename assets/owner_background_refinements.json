@@ -1,0 +1,12 @@
+{
+  "source_sha256": "222196968718bbddbbecb295cc68432a2179c0f0cc8a2fa82627226284b5eb26",
+  "description": "Reviewed inner background gaps for this exact supplied image. Luminance-guided alpha refinement preserves dark hair strands; foreground RGB is never changed.",
+  "panels": {
+    "ponytail": [
+      [[381, 366], [400, 360], [411, 383], [424, 416], [443, 465], [435, 469], [413, 451], [392, 433], [382, 418], [376, 397], [376, 381]]
+    ],
+    "wrist": [
+      [[389, 366], [398, 366], [402, 377], [400, 390], [391, 403], [386, 389], [384, 377]]
+    ]
+  }
+}

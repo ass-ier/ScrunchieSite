@@ -1,0 +1,30 @@
+{
+  "source": "assets/blender/akeya-ritual.blend",
+  "generator": "assets/blender/build_ritual.py",
+  "blender_version": "3.0.0",
+  "frames": [
+    1,
+    121
+  ],
+  "fps": 24,
+  "duration_seconds": 5,
+  "looks": [
+    {
+      "name": "ponytail",
+      "frame": 1
+    },
+    {
+      "name": "bun",
+      "frame": 61
+    },
+    {
+      "name": "wrist",
+      "frame": 121
+    }
+  ],
+  "camera": "RitualCamera",
+  "reference_aspect": 1.3333333333333333,
+  "description": "Original sculpted model, not a scan or likeness of a real person.",
+  "mesh_objects": 121,
+  "vertices": 115532
+}

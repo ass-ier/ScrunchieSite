@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Avg
+from django.db.models import Avg, Count
 from .models import Review
 from .serializers import ReviewSerializer
 
@@ -12,6 +12,8 @@ class ReviewViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = Review.objects.all()
+        if self.action in ['update', 'partial_update', 'destroy'] and not self.request.user.is_staff:
+            queryset = queryset.filter(user=self.request.user)
         product_id = self.request.query_params.get('product_id')
         if product_id:
             queryset = queryset.filter(product_id=product_id)
@@ -32,7 +34,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         reviews = Review.objects.filter(product_id=product_id)
         stats = reviews.aggregate(
             average_rating=Avg('rating'),
-            total_reviews=models.Count('id')
+            total_reviews=Count('id')
         )
         
         # Rating distribution

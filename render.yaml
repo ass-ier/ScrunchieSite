@@ -1,0 +1,104 @@
+services:
+  - type: web
+    name: akeya-api
+    runtime: python
+    plan: starter
+    rootDir: backend
+    buildCommand: bash build.sh
+    startCommand: python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60 --access-logfile -
+    healthCheckPath: /api/health/
+    disk:
+      name: akeya-media
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.7
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: akeya-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        fromService:
+          type: web
+          name: akeya-api
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: FRONTEND_URL
+        sync: false
+      - key: MEDIA_ROOT
+        value: /var/data/media
+      - key: PRIVATE_MEDIA_ROOT
+        value: /var/data/private-media
+      - key: EMAIL_BACKEND
+        value: django.core.mail.backends.smtp.EmailBackend
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+  - type: cron
+    name: akeya-email-retries
+    runtime: python
+    plan: starter
+    rootDir: backend
+    schedule: "*/5 * * * *"
+    buildCommand: pip install -r requirements-production.txt
+    startCommand: python manage.py send_order_emails
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.7
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: akeya-db
+          property: connectionString
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: akeya-api
+          envVarKey: SECRET_KEY
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: akeya-api
+          envVarKey: FRONTEND_URL
+      - key: EMAIL_HOST
+        fromService:
+          type: web
+          name: akeya-api
+          envVarKey: EMAIL_HOST
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        fromService:
+          type: web
+          name: akeya-api
+          envVarKey: EMAIL_HOST_USER
+      - key: EMAIL_HOST_PASSWORD
+        fromService:
+          type: web
+          name: akeya-api
+          envVarKey: EMAIL_HOST_PASSWORD
+      - key: DEFAULT_FROM_EMAIL
+        fromService:
+          type: web
+          name: akeya-api
+          envVarKey: DEFAULT_FROM_EMAIL
+databases:
+  - name: akeya-db
+    plan: basic-256mb
+    ipAllowList: []

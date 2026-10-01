@@ -1,0 +1,58 @@
+{
+  "source": "Three-look image supplied by the user for the AKEYA website.",
+  "source_sha256": "222196968718bbddbbecb295cc68432a2179c0f0cc8a2fa82627226284b5eb26",
+  "source_dimensions": [
+    2000,
+    667
+  ],
+  "processing": "Local panel crops, background removal via an alpha mask, resizing and WebP encoding. No facial, hair, body, or accessory edits.",
+  "background_removal": {
+    "model": "birefnet-portrait",
+    "rembg_version": "2.0.76",
+    "execution": "local CPU",
+    "rgb_retouching": false
+  },
+  "inner_gap_refinement": true,
+  "external_processing": false,
+  "panels": [
+    {
+      "look": "ponytail",
+      "file": "owner-ponytail.webp",
+      "crop": [
+        0,
+        0,
+        667,
+        667
+      ],
+      "width": 667,
+      "height": 667,
+      "transparent_background": true
+    },
+    {
+      "look": "bun",
+      "file": "owner-bun.webp",
+      "crop": [
+        667,
+        0,
+        1333,
+        667
+      ],
+      "width": 666,
+      "height": 667,
+      "transparent_background": true
+    },
+    {
+      "look": "wrist",
+      "file": "owner-wrist.webp",
+      "crop": [
+        1333,
+        0,
+        2000,
+        667
+      ],
+      "width": 667,
+      "height": 667,
+      "transparent_background": true
+    }
+  ]
+}
