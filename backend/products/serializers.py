@@ -3,6 +3,7 @@ from django.db import transaction
 from .models import Product, Category, ProductSize, ProductImage, StoreSettings
 import json
 from urllib.parse import urlsplit
+from django.conf import settings
 
 
 def validate_image(image):
@@ -121,10 +122,15 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class StoreSettingsSerializer(serializers.ModelSerializer):
+    preview_mode = serializers.SerializerMethodField()
+
     class Meta:
         model = StoreSettings
         fields = ['account_name', 'telebirr', 'cbe', 'dashen', 'pickup_address', 'delivery_fee', 'announcement',
-                  'instagram_url', 'tiktok_url', 'telegram_url']
+                  'instagram_url', 'tiktok_url', 'telegram_url', 'preview_mode']
+
+    def get_preview_mode(self, obj):
+        return settings.OWNER_PREVIEW_MODE
 
     def validate(self, data):
         hosts = {

@@ -210,6 +210,15 @@ once. This works with `DEBUG=False`, copies photos onto Render's persistent
 disk, and refuses to overwrite existing content. It does not copy local users,
 passwords, orders, receipts or browser carts, and is not automatic synchronization.
 
+**Render Free (no Shell):** use the guide's **"Render Free: shell-free owner
+preview"** section instead. Set `OWNER_PREVIEW_MODE=True`, keep `DEBUG=False`,
+remove `DATABASE_URL`, and use `bash start-preview.sh` as the start command.
+Startup automatically restores the 12-product catalog into an isolated,
+disposable SQLite database and media directory. No SMTP, external database or
+paid disk is required. Browsing, cart and checkout totals work, but order/receipt
+submission, email, sign-in and admin changes are blocked. The normal production
+store behavior is unchanged when the flag is false.
+
 The source is prepared for deployment, but no hosting resources, sender domain,
 real transfer accounts or credentials are provisioned by the code. Verify email
 delivery using your own SMTP account before launch. Older roadmap, feature and

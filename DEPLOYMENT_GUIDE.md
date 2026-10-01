@@ -4,7 +4,127 @@ This is the current deployment guide. Older setup/checklist documents are
 historical. Target: Vercel storefront + Render Django API, PostgreSQL, persistent
 file storage and SMTP email. No automatic payment gateway is used.
 
+## Render Free: shell-free owner preview
+
+**Use this section for your current goal: showing the owner how the site looks.**
+It replaces the paid/Shell instructions below for this preview only.
+
+Render Free has no Shell or persistent disk, loses local files on restart, and
+blocks outbound SMTP ports 25, 465 and 587. The new `OWNER_PREVIEW_MODE` handles
+this by creating a fresh disposable database and restoring the bundled catalog
+and images automatically on each startup. The snapshot contains the same 12
+visible local products, prices, sizes, stock and featured selections.
+
+The storefront, owner photos, animations, cart and checkout price preview remain
+available. **Real payments, orders, receipt uploads, customer sign-in, email/SMS
+and admin changes are disabled.** This is a visual, read-only preview, not a
+production store. No PostgreSQL, disk, cron job, SMTP account or admin password
+is needed for this mode.
+
+### 1. Push the updated code
+
+Commit and push these changes, including `backend/start-preview.sh`,
+`backend/config/preview.py` and the catalog bundle. Vercel and Render must deploy
+the same branch. Do not use the paid `render.yaml` Blueprint for this free setup.
+
+### 2. Configure the Vercel frontend
+
+In Vercel's new/existing project:
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `frontend` |
+| Framework | Vite |
+| Install Command | `npm ci` |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Production `VITE_API_URL` | `https://YOUR-RENDER-SERVICE.onrender.com/api` |
+
+If the Render URL is not known yet, use `https://api.invalid/api` temporarily,
+deploy Vercel to obtain its production URL, and replace the value/redeploy after
+step 3. Initial catalog errors disappear once the frontend is connected.
+
+### 3. Configure Render without opening Shell
+
+Use **New → Web Service**, connect the repository and select **Free**. For an
+existing free service, edit **Settings → Build & Deploy** and **Environment**.
+
+| Setting | Value |
+| --- | --- |
+| Runtime | Python 3 |
+| Root Directory | `backend` |
+| Build Command | `bash build.sh` |
+| Start Command | `bash start-preview.sh` |
+| Health Check Path | `/api/health/` |
+| Instance Type | Free |
+
+Set these environment variables:
+
+```dotenv
+PYTHON_VERSION=3.13.7
+DEBUG=False
+OWNER_PREVIEW_MODE=True
+SECRET_KEY=<a-new-random-secret-at-least-50-characters>
+ALLOWED_HOSTS=YOUR-RENDER-SERVICE.onrender.com
+FRONTEND_URL=https://YOUR-VERCEL-SITE.vercel.app
+```
+
+Generate the secret in your computer's terminal, not in Render Shell:
+
+```sh
+python3 -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
+Replace the hostname/URL placeholders with your assigned addresses.
+`ALLOWED_HOSTS` has **no** `https://` or path. `FRONTEND_URL` includes `https://`
+but has no `/api` suffix or trailing slash.
+
+**Remove `DATABASE_URL` from this preview service's environment.** The mode
+deliberately refuses an external database so it cannot touch a real shop.
+SMTP variables are unnecessary and are not used. Keep `DEBUG=False`.
+If old `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS` overrides exist, remove
+them to use `FRONTEND_URL`, or set them to the correct HTTPS frontend origin.
+
+Click **Save, rebuild and deploy** (or **Manual Deploy → Deploy latest commit**).
+The start command automatically runs migrations, loads the 12 products and
+photos into its isolated disposable directory, and starts the API. No Shell
+command or manual seed step is required, and it does not reset another database.
+
+### 4. Connect and share
+
+Visit `https://YOUR-RENDER-SERVICE.onrender.com/api/health/` and wait until it
+returns `{"status":"ok"}`. Then set Vercel's Production `VITE_API_URL` to that
+Render origin **plus `/api`**, and redeploy Vercel.
+
+Open the Vercel production URL in an incognito window: the 12 products, four
+featured items, transparent owner portraits and animations should match the
+local preview, with an additional read-only preview notice. Check `/products`
+and add a product to the cart to explore the checkout layout. You can leave
+contact fields empty; receipt and order submission controls are disabled.
+If Vercel asks the owner to log in, review the project's Deployment Protection.
+
+Share the **Vercel URL**. A free Render service sleeps after 15 minutes without
+traffic and may take about a minute to wake up. If products initially fail to
+load, wait for `/api/health/` to respond and refresh the storefront. Free quotas
+still apply. The catalog is reconstructed from the bundle after restarts, so
+there is no data loss for this read-only preview.
+
+### Switching to a real store later
+
+Set `OWNER_PREVIEW_MODE=False`, restore the normal production start command,
+configure PostgreSQL, persistent or private object storage, and a real
+transactional email delivery method. Render Free blocks the standard SMTP
+ports; use a supported HTTPS email integration or a hosting plan that permits
+your SMTP service. The paid Blueprint below uses SMTP and persistent disk.
+Never take real orders in the disposable preview mode.
+
+Render's current limits: https://render.com/docs/free
+
 ## Share the same local preview with the owner
+
+**Paid/full-function preview path:** the following instructions use Render
+Shell, PostgreSQL, a persistent disk and SMTP. For Render Free, use the
+shell-free section above instead.
 
 Use this path to show the owner the **current local design and 12 demo products**,
 not an empty shop. The bundle at `backend/products/owner_preview/` includes the
@@ -84,8 +204,9 @@ this upload-based setup**; its ephemeral files will not survive redeploys.
 The Blueprint supplies `DEBUG=False`, Python 3.13.7, the internal PostgreSQL
 connection, the API hostname, SMTP port 587/TLS, `/var/data/media`, and
 `/var/data/private-media`. It mounts a persistent disk at `/var/data`.
-Use a real SMTP configuration even for this hosted preview: secure production
-startup currently requires it. Do not turn `DEBUG=True` to bypass that check.
+Use a real SMTP configuration for this full-function hosted preview: normal
+production startup requires it. The separate read-only `OWNER_PREVIEW_MODE`
+does not send email and does not require SMTP. Do not turn `DEBUG=True` to bypass checks.
 If you use SMTP port 465, follow the SSL instructions later in this guide.
 
 ### D. Load the local products into Render once
@@ -208,7 +329,7 @@ For SMTP providers using port 465, set `EMAIL_USE_SSL=True`,
 Keep the two services' mail settings synchronized and resync the Blueprint after
 changing referenced environment variables.
 
-The API refuses production startup without PostgreSQL, a strong secret, an
+Outside the explicitly read-only `OWNER_PREVIEW_MODE`, the API refuses production startup without PostgreSQL, a strong secret, an
 HTTPS storefront URL, an SMTP host and a non-local sender. This catches missing
 configuration, not invalid provider credentials or DNS.
 

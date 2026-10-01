@@ -15,8 +15,9 @@ export default function StoreAnnouncements({ settings, settingsError }) {
     return () => { active = false }
   }, [])
   if (error || settingsError) return <p role="status" className="text-center text-sm py-2 px-4 bg-primary-50">Store announcements could not be loaded. Refresh to check current offers.</p>
-  if (!announcement && !promotions.length) return null
+  if (!announcement && !promotions.length && !settings?.preview_mode) return null
   return <aside aria-label="Store announcements" className="bg-accent-100 text-primary-900 text-sm px-4 py-3 text-center space-y-2">
+    {settings?.preview_mode && <p className="font-semibold">Owner preview · Browse the collection and checkout layout. Payments, uploads, sign-in and admin changes are disabled.</p>}
     {announcement && <p>{announcement}</p>}
     {promotions.map(promotion => <p key={promotion.code}>
       {promotion.announcement && `${promotion.announcement} — `}

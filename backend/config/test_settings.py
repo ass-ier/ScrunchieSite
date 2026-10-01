@@ -2,6 +2,7 @@ import os
 
 # Tests never use a developer's database, mail account, or tracked .env secrets.
 os.environ['DEBUG'] = 'True'
+os.environ['OWNER_PREVIEW_MODE'] = 'False'
 os.environ['SECRET_KEY'] = 'isolated-test-key-not-for-production-use-000000000000000'
 os.environ['DATABASE_URL'] = os.environ.get('TEST_DATABASE_URL', 'sqlite:///:memory:')
 os.environ['EMAIL_BACKEND'] = 'django.core.mail.backends.locmem.EmailBackend'

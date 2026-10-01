@@ -17,3 +17,4 @@ backend/staticfiles/
 .playwright-mcp/
 assets/blender/renders/
 *.blend1
+backend/.owner-preview/

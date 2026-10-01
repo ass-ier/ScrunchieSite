@@ -61,6 +61,7 @@ export default function Checkout() {
 
   const submitOrder = async (event) => {
     event.preventDefault()
+    if (store?.preview_mode) { setError('This is a read-only preview. Orders and receipt uploads are disabled.'); return }
     if (submitting.current) return
     if (!receipt) { setError('Please upload a screenshot of your transfer receipt.'); return }
     submitting.current = true
@@ -86,7 +87,9 @@ export default function Checkout() {
       <Breadcrumbs />
       <div className="max-w-6xl mx-auto px-4 py-10">
         <h1 className="text-4xl mb-3">Checkout</h1>
-        <p className="text-primary-700 mb-8">No account needed. Transfer your payment, then send us the receipt for review.</p>
+        <p className="text-primary-700 mb-8">{store?.preview_mode
+          ? 'Read-only checkout preview. You can leave contact details empty and explore the order total. Do not transfer money or upload a receipt.'
+          : 'No account needed. Transfer your payment, then send us the receipt for review.'}</p>
         <ol className="flex gap-5 text-sm mb-8" aria-label="Checkout progress">
           <li aria-current={!quote ? 'step' : undefined} className={!quote ? 'font-bold' : ''}>1. Your details</li>
           <li aria-current={quote ? 'step' : undefined} className={quote ? 'font-bold' : ''}>2. Transfer &amp; receipt</li>
@@ -98,10 +101,10 @@ export default function Checkout() {
               <>
                 <section className="panel space-y-4">
                   <h2 className="text-2xl">Your details</h2>
-                  <label className="field-label">Full name<input name="full_name" autoComplete="name" maxLength={200} required value={form.full_name} onChange={change} className="input-field" /></label>
-                  <label className="field-label">Phone number<input name="phone" type="tel" autoComplete="tel" maxLength={20} placeholder="+251..." required value={form.phone} onChange={change} className="input-field" /></label>
-                  <label className="field-label">Email address<input name="email" type="email" autoComplete="email" maxLength={254} required value={form.email} onChange={change} aria-describedby="email-purpose" className="input-field" /></label>
-                  <p id="email-purpose" className="text-sm text-primary-700">We will use this email to send your order confirmation and let you know whether your payment has been authenticated or declined. It will not subscribe you to marketing emails.</p>
+                  <label className="field-label">Full name<input name="full_name" autoComplete="name" maxLength={200} required={!store?.preview_mode} value={form.full_name} onChange={change} className="input-field" /></label>
+                  <label className="field-label">Phone number<input name="phone" type="tel" autoComplete="tel" maxLength={20} placeholder="+251..." required={!store?.preview_mode} value={form.phone} onChange={change} className="input-field" /></label>
+                  <label className="field-label">Email address<input name="email" type="email" autoComplete="email" maxLength={254} required={!store?.preview_mode} value={form.email} onChange={change} aria-describedby="email-purpose" className="input-field" /></label>
+                  <p id="email-purpose" className="text-sm text-primary-700">{store?.preview_mode ? 'No email is sent in this preview. Contact details are optional and are not submitted.' : 'We will use this email to send your order confirmation and let you know whether your payment has been authenticated or declined. It will not subscribe you to marketing emails.'}</p>
                 </section>
                 <section className="panel space-y-4">
                   <h2 className="text-2xl">Delivery or pickup</h2>
@@ -110,9 +113,9 @@ export default function Checkout() {
                     {store?.pickup_address && <option value="pickup">Pickup</option>}
                   </select></label>
                   {form.delivery_method === 'delivery'
-                    ? <label className="field-label">Delivery address<textarea name="address" required maxLength={2000} value={form.address} onChange={change} autoComplete="street-address" rows={3} className="input-field" /></label>
+                    ? <label className="field-label">Delivery address<textarea name="address" required={!store?.preview_mode} maxLength={2000} value={form.address} onChange={change} autoComplete="street-address" rows={3} className="input-field" /></label>
                     : <p className="text-primary-700">Pickup location: {store?.pickup_address}</p>}
-                  <label className="field-label">Requested {form.delivery_method} date<input name="selected_date" type="date" min={tomorrow} required value={form.selected_date} onChange={change} className="input-field" /></label>
+                  <label className="field-label">Requested {form.delivery_method} date<input name="selected_date" type="date" min={tomorrow} required={!store?.preview_mode} value={form.selected_date} onChange={change} className="input-field" /></label>
                   <label className="field-label">Delivery notes (optional)<textarea name="delivery_notes" maxLength={2000} value={form.delivery_notes} onChange={change} rows={2} className="input-field" /></label>
                   <label className="field-label">Discount code (optional)<input name="coupon_code" maxLength={50} value={form.coupon_code} onChange={change} className="input-field uppercase" /></label>
                 </section>
@@ -121,9 +124,11 @@ export default function Checkout() {
             ) : (
               <>
                 <section className="panel space-y-4">
-                  <div className="flex justify-between gap-4"><h2 className="text-2xl">Transfer {money(quote.total_amount)}</h2><button type="button" disabled={busy} onClick={() => { setQuote(null); setError('') }} className="text-sm underline">Edit details</button></div>
-                  <p className="text-sm text-primary-700">Send exactly this total. Use the account holder name below to double-check the recipient before transferring.</p>
-                  <p className="text-sm text-primary-700">Stock is reserved when you submit the order, not while this page is open. Submit promptly after transferring. If availability changes, keep your receipt and contact the store; do not transfer again.</p>
+                  <div className="flex justify-between gap-4"><h2 className="text-2xl">{store?.preview_mode ? 'Preview total' : 'Transfer'} {money(quote.total_amount)}</h2><button type="button" disabled={busy} onClick={() => { setQuote(null); setError('') }} className="text-sm underline">Edit details</button></div>
+                  {store?.preview_mode ? <p role="status" className="text-sm font-semibold text-primary-700">Preview only. These are demonstration account details. No payments or orders are accepted.</p> : <>
+                    <p className="text-sm text-primary-700">Send exactly this total. Use the account holder name below to double-check the recipient before transferring.</p>
+                    <p className="text-sm text-primary-700">Stock is reserved when you submit the order, not while this page is open. Submit promptly after transferring. If availability changes, keep your receipt and contact the store; do not transfer again.</p>
+                  </>}
                   <label className="field-label">Payment method<select name="payment_method" required value={form.payment_method} onChange={change} className="input-field">
                     {Object.entries(methodNames).filter(([key]) => store?.[key]).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
                   </select></label>
@@ -131,8 +136,8 @@ export default function Checkout() {
                     <dt className="text-sm">Account / phone number</dt><dd className="text-xl font-bold select-all">{store?.[form.payment_method]}</dd>
                     <dt className="text-sm">Account holder</dt><dd className="font-semibold">{store?.account_name}</dd>
                   </dl>
-                  <label className="field-label">Transaction ID<input name="transaction_reference" required minLength={4} maxLength={200} pattern="[A-Za-z0-9][A-Za-z0-9_\/\-]{3,199}" value={form.transaction_reference} onChange={change} placeholder="Paste the ID from your transfer receipt" className="input-field" /></label>
-                  <label className="field-label">Transfer receipt screenshot<input type="file" required accept="image/png,image/jpeg" className="input-field" onChange={event => {
+                  <label className="field-label">Transaction ID<input name="transaction_reference" disabled={store?.preview_mode} required minLength={4} maxLength={200} pattern="[A-Za-z0-9][A-Za-z0-9_\/\-]{3,199}" value={form.transaction_reference} onChange={change} placeholder="Paste the ID from your transfer receipt" className="input-field" /></label>
+                  <label className="field-label">Transfer receipt screenshot<input type="file" disabled={store?.preview_mode} required accept="image/png,image/jpeg" className="input-field" onChange={event => {
                     const file = event.target.files?.[0]
                     setReceipt(null)
                     if (!file) return
@@ -143,11 +148,11 @@ export default function Checkout() {
                     }
                     setReceipt(file); setError('')
                   }} /></label>
-                  <p className="text-sm text-primary-700">JPEG or PNG, up to 5 MB. Only the store owner can view your receipt. Hide unrelated balances or transactions before uploading.</p>
+                  <p className="text-sm text-primary-700">{store?.preview_mode ? 'Receipt uploads are disabled in this preview.' : 'JPEG or PNG, up to 5 MB. Only the store owner can view your receipt. Hide unrelated balances or transactions before uploading.'}</p>
                   {preview && <img src={preview} alt="Your selected transfer receipt" className="max-h-72 max-w-full rounded object-contain" />}
                 </section>
-                <p className="text-sm text-primary-700">We will email <strong>{form.email}</strong> after review. Submitting a receipt does not mean the payment is approved.</p>
-                <button type="submit" disabled={busy || !receipt} className="btn-primary w-full">{busy ? 'Submitting your order...' : 'Submit receipt & place order'}</button>
+                {!store?.preview_mode && <p className="text-sm text-primary-700">We will email <strong>{form.email}</strong> after review. Submitting a receipt does not mean the payment is approved.</p>}
+                <button type="submit" disabled={busy || !receipt || store?.preview_mode} className="btn-primary w-full">{store?.preview_mode ? 'Orders disabled in preview' : busy ? 'Submitting your order...' : 'Submit receipt & place order'}</button>
               </>
             )}
           </form>
